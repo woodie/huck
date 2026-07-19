@@ -1,7 +1,10 @@
-.PHONY: build test lint check package
+.PHONY: build test lint check package run
 
 build:
 	./gradlew build -x test
+
+run:
+	./gradlew run
 
 test:
 	./gradlew test
