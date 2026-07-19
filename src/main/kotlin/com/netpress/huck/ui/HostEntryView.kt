@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 // a bare Column sizes to its content and sits top-start otherwise (same fix as ConnectingView,
 // confirmed missing on a real run). Padding/spacing match zouk's real SwiftUI numbers (40dp
 // padding, 16dp spacing) -- an earlier pass tightened these to 24dp/8dp because Material's
-// OutlinedTextField's built-in padding overflowed the 315dp minimum window height and clipped
+// OutlinedTextField's built-in padding overflowed the 310dp minimum window height and clipped
 // the Connect button, but OutlinedTextField is gone now (see HostTextField) and verticalScroll
 // below is a floor against that overflow regardless, so there's no longer a reason not to match
 // zouk's real spacing -- restored after a real side-by-side screenshot showed zouk's window

@@ -23,11 +23,11 @@ fun main() =
             // real screenshot comparison. Set once here, not per-screen: Window's title doesn't
             // change as ContentView branches between HostEntryView/ConnectingView/ScanGridView.
             title = "Huck scan retriever",
-            state = rememberWindowState(size = DpSize(360.dp, 315.dp)),
+            state = rememberWindowState(size = DpSize(360.dp, 310.dp)),
         ) {
             // Window's size (above) only sets the initial size -- it's still user-resizable below that unless minimumSize is set on the underlying AWT window too.
             LaunchedEffect(Unit) {
-                window.minimumSize = Dimension(360, 315)
+                window.minimumSize = Dimension(360, 310)
             }
 
             val model = remember { AppModel() }

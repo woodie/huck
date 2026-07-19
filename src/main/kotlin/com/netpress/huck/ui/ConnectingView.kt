@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 // (confirmed on a real run). Padding/spacing match zouk's real SwiftUI numbers (40dp padding,
 // 16dp spacing) -- restored after a real side-by-side screenshot showed zouk's window
 // consistently taller than ours by roughly this same margin (same reasoning as HostEntryView:
-// an earlier pass tightened these out of caution about the 315dp minimum window height, but
+// an earlier pass tightened these out of caution about the 310dp minimum window height, but
 // verticalScroll below is already a floor against that regardless).
 @Composable
 fun ConnectingView() {

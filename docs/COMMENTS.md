@@ -64,13 +64,14 @@ here rather than per-screen -- `Window`'s title doesn't change as
 `ContentView` branches between `HostEntryView`/`ConnectingView`/
 `ScanGridView`, and zouk's doesn't either.
 
-### Window height: 280 -> 315
+### Window height: 280 -> 315 -> 310
 Both the initial size (`rememberWindowState`) and the enforced floor
 (`window.minimumSize`) were originally 360x280, matching an early explicit
 request before any of `HostEntryView`/`ConnectingView`/`ScanGridView` had
 real content. Bumped to 315 after a real side-by-side screenshot against
-zouk showed zouk's window consistently taller by roughly that margin --
-width stays 360, only height moved.
+zouk showed zouk's window consistently taller by roughly that margin, then
+corrected to 310 after a follow-up real screenshot -- width stays 360, only
+height moved either time.
 
 ## src/main/kotlin/com/netpress/huck/ScanClient.kt
 
@@ -161,6 +162,18 @@ A toolbar/URL-bar field (`ScanGridView`) reads left to right; zouk's actual
 `HostEntryView` centers its host field, confirmed on a real run comparing
 against zouk's own screenshots.
 
+### `fontSize = 14.sp`, vertical padding 8dp -> 6dp
+A follow-up real side-by-side screenshot showed the field still noticeably
+taller than zouk's and its text noticeably larger, even after switching off
+`OutlinedTextField`. Pinning the font size below `body1`'s default (~16sp)
+and trimming vertical padding gets the field to roughly 80% of its previous
+height without shrinking small enough to clip the cursor or descenders.
+This, combined with restoring `HostEntryView`/`ConnectingView` to zouk's
+real 40dp/16dp padding and spacing (see that file's comments), is what
+actually fixed the Connect button getting clipped at the window's minimum
+height -- freeing up vertical space by shrinking the field, rather than
+compressing the surrounding layout.
+
 ## src/main/kotlin/com/netpress/huck/ui/AppIconImage.kt
 
 ### Defaults to `Res.drawable.small`, not `large`
@@ -187,7 +200,7 @@ so the whole block centers as a group while keeping spacing between children.
 ### Padding/spacing: tightened, then restored to zouk's real numbers
 zouk's real SwiftUI numbers are 40dp padding and 16dp spacing. An earlier
 pass tightened both to 24dp/8dp because Material's `OutlinedTextField`'s
-built-in padding overflowed the 315dp minimum window height and clipped the
+built-in padding overflowed the 310dp minimum window height and clipped the
 Connect button with no way to reach it, confirmed on a real run at the time.
 `OutlinedTextField` is gone now (replaced by the compact `HostTextField`),
 and `verticalScroll` on both views is already a floor against that overflow

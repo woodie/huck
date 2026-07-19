@@ -15,6 +15,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // A shared host-input field for HostEntryView and ScanGridView's toolbar. Material's
 // OutlinedTextField enforces a hardcoded ~56dp minimum height (TextFieldDefaults.MinHeight) for
@@ -22,6 +23,12 @@ import androidx.compose.ui.unit.dp
 // to it and not matching zouk's compact native macOS field. BasicTextField with a thin manual
 // border sidesteps that entirely: no floating-label space reserved, height is just text line
 // height + this composable's own padding, giving a field close to zouk's actual proportions.
+//
+// Font size is pinned to 14.sp (down from body1's default ~16sp) and vertical padding to 6dp
+// (down from 8dp) -- confirmed on a real side-by-side screenshot that the field was still
+// noticeably taller than zouk's and its text noticeably larger; this combination gets it to
+// roughly zouk's actual proportions (about 80% of the previous height) without shrinking it to
+// the point of clipping the cursor or descenders.
 //
 // textAlign defaults to Start (a toolbar/URL-bar field reads left to right); HostEntryView
 // passes Center to match zouk's centered host field on that screen, confirmed on a real run.
@@ -36,7 +43,7 @@ fun HostTextField(
     var fieldModifier =
         modifier
             .border(1.dp, MaterialTheme.colors.onSurface.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
 
     if (onSubmit != null) {
         fieldModifier =
@@ -58,6 +65,7 @@ fun HostTextField(
             MaterialTheme.typography.body1.copy(
                 color = MaterialTheme.colors.onSurface,
                 textAlign = textAlign,
+                fontSize = 14.sp,
             ),
         cursorBrush = SolidColor(MaterialTheme.colors.onSurface),
         modifier = fieldModifier,
