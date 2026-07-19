@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.TestDescriptor
+import org.gradle.api.tasks.testing.TestListener
+import org.gradle.api.tasks.testing.TestResult
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -44,4 +47,73 @@ compose.desktop {
             packageVersion = "0.1.0"
         }
     }
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
+
+    // Custom RSpec/ginkgo-fd-style console reporter -- same as humane-kotlin's
+    // build.gradle.kts (copied from next-caltrain-kotlin originally; see that
+    // file's own comments for the full reasoning). No test source exists here
+    // yet, but this is wired up now so it's already in place the moment real
+    // tests land.
+    var lastPath: List<String> = emptyList()
+
+    val colorEnabled = System.getenv("NO_COLOR") == null
+    val reset = "[0m"
+    val green = "[32m"
+    val red = "[31m"
+    val cyan = "[36m"
+    val gray = "[90m"
+    fun ansi(code: String, text: String) = if (colorEnabled) "$code$text$reset" else text
+
+    fun ancestry(descriptor: TestDescriptor): List<String> {
+        val names = mutableListOf<String>()
+        var d = descriptor.parent
+        while (d != null) {
+            if (!d.name.startsWith("Gradle Test")) names.add(0, d.name)
+            d = d.parent
+        }
+        return names
+    }
+
+    doFirst {
+        lastPath = emptyList()
+    }
+
+    addTestListener(object : TestListener {
+        override fun beforeSuite(suite: TestDescriptor) {}
+        override fun afterSuite(suite: TestDescriptor, result: TestResult) {}
+        override fun beforeTest(testDescriptor: TestDescriptor) {}
+
+        override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {
+            val ancestors = ancestry(testDescriptor)
+            val path = ancestors + testDescriptor.name
+
+            val shared = path.zip(lastPath).takeWhile { (a, b) -> a == b }.count()
+            for (depth in shared until ancestors.size) {
+                if (depth == 0) println()
+                println("  ".repeat(depth) + ancestors[depth])
+            }
+
+            val line = when (result.resultType) {
+                TestResult.ResultType.SUCCESS ->
+                    "${ansi(green, "✔")} ${ansi(gray, testDescriptor.name)}"
+
+                TestResult.ResultType.SKIPPED ->
+                    ansi(cyan, "○ ${testDescriptor.name}")
+
+                else ->
+                    ansi(red, "✖ ${testDescriptor.name}")
+            }
+            println("  ".repeat(ancestors.size) + line)
+            if (result.resultType == TestResult.ResultType.FAILURE) {
+                result.exceptions.forEach { e ->
+                    println("  ".repeat(ancestors.size + 1) + ansi(red, e.message ?: e.toString()))
+                }
+            }
+
+            lastPath = path
+        }
+    })
 }
