@@ -1,0 +1,11 @@
+root = true
+
+[*.{kt,kts}]
+# Compose's own naming convention for @Composable UI functions is PascalCase
+# (HostEntryView, ConnectingView, AppIconImage, ScanGridView, RunningDogImage)
+# -- they read as UI declarations, not verbs, matching how a @Composable
+# function is really used (like a widget/tag, not a regular function call).
+# ktlint's standard function-naming rule defaults to requiring lowerCamelCase
+# for everything; this opts @Composable-annotated functions out of that,
+# which is the documented fix for ktlint + Compose Multiplatform projects.
+ktlint_function_naming_ignore_when_annotated_with = Composable

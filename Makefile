@@ -1,10 +1,18 @@
-.PHONY: build test lint check package run
+.PHONY: build test lint format check package run
 
 build:
 	./gradlew build -x test
 
 run:
 	./gradlew run
+
+# Auto-fixes the mechanical stuff ktlintCheck flags (parameter-list wrapping,
+# supertype-on-newline, multiline-expression placement, etc.) -- much safer
+# than hand-editing indentation to guess what the formatter wants. Run this
+# before `make build`/`make check` whenever lint fails on wrapping-style
+# violations.
+format:
+	./gradlew ktlintFormat
 
 # clean, not just test -- Gradle otherwise marks the test task UP-TO-DATE on
 # an unchanged run and skips re-executing it, which also skips the custom
