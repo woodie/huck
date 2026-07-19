@@ -58,34 +58,35 @@ object RunningDogAnimation {
         val graphics = canvas.createGraphics()
         var previousSnapshot: BufferedImage? = null
 
-        return (0 until reader.getNumImages(true)).map { index ->
-            val frame = reader.read(index)
-            val metadata = reader.getImageMetadata(index)
-            val (left, top) = frameOffset(metadata)
-            val disposal = disposalMethod(metadata)
+        return (0 until reader.getNumImages(true))
+            .map { index ->
+                val frame = reader.read(index)
+                val metadata = reader.getImageMetadata(index)
+                val (left, top) = frameOffset(metadata)
+                val disposal = disposalMethod(metadata)
 
-            if (disposal == "restoreToPrevious") previousSnapshot = copyOf(canvas)
+                if (disposal == "restoreToPrevious") previousSnapshot = copyOf(canvas)
 
-            graphics.drawImage(frame, left, top, null)
-            val rendered = copyOf(canvas)
+                graphics.drawImage(frame, left, top, null)
+                val rendered = copyOf(canvas)
 
-            when (disposal) {
-                "restoreToBackgroundColor" -> {
-                    graphics.composite = AlphaComposite.Clear
-                    graphics.fillRect(left, top, frame.width, frame.height)
-                    graphics.composite = AlphaComposite.SrcOver
-                }
-                "restoreToPrevious" ->
-                    previousSnapshot?.let {
-                        graphics.composite = AlphaComposite.Src
-                        graphics.drawImage(it, 0, 0, null)
+                when (disposal) {
+                    "restoreToBackgroundColor" -> {
+                        graphics.composite = AlphaComposite.Clear
+                        graphics.fillRect(left, top, frame.width, frame.height)
                         graphics.composite = AlphaComposite.SrcOver
                     }
-                else -> Unit // "none"/"doNotDispose"/unrecognized -- leave the canvas as-is
-            }
+                    "restoreToPrevious" ->
+                        previousSnapshot?.let {
+                            graphics.composite = AlphaComposite.Src
+                            graphics.drawImage(it, 0, 0, null)
+                            graphics.composite = AlphaComposite.SrcOver
+                        }
+                    else -> Unit // "none"/"doNotDispose"/unrecognized -- leave the canvas as-is
+                }
 
-            rendered.toComposeImageBitmap()
-        }.also { graphics.dispose() }
+                rendered.toComposeImageBitmap()
+            }.also { graphics.dispose() }
     }
 
     private fun copyOf(image: BufferedImage): BufferedImage {
