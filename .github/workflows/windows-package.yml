@@ -1,0 +1,44 @@
+name: Windows package
+
+# Builds a real Windows .msi on a real (ephemeral, GitHub-hosted) Windows
+# machine -- see docs/COWORK.md for why this replaces needing physical
+# Windows hardware for anything but final manual smoke-testing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  package-msi:
+    runs-on: windows-latest
+    steps:
+      - name: Check out huck
+        uses: actions/checkout@v4
+
+      # Lands at ../humane-kotlin relative to huck's own checkout, matching
+      # what settings.gradle.kts's includeBuild("../humane-kotlin") expects --
+      # actions/checkout's `path` is relative to the parent of $GITHUB_WORKSPACE,
+      # so this and the huck checkout above end up as sibling directories.
+      - name: Check out humane-kotlin as a sibling checkout
+        uses: actions/checkout@v4
+        with:
+          repository: woodie/humane-kotlin
+          path: humane-kotlin
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Package Windows installer
+        run: .\gradlew.bat packageMsi
+
+      # Path is Compose Desktop's documented default output location for this
+      # task -- not yet confirmed against a real run, since this workflow
+      # hasn't executed yet. Adjust if the actual artifact lands elsewhere.
+      - name: Upload the .msi
+        uses: actions/upload-artifact@v4
+        with:
+          name: huck-msi
+          path: build/compose/binaries/main/msi/*.msi
