@@ -73,20 +73,11 @@ compose.resources {
     packageOfResClass = "com.netpress.huck.resources"
 }
 
-ktlint {
-    // The Compose plugin registers its generated Res.kt/Drawable0.main.kt (under
-    // build/generated/compose/resourceGenerator) as a real Kotlin source dir on the
-    // main source set, so ktlint picks it up too -- it's not ours to fix (naming,
-    // formatting, all of it is JetBrains' generated code), so exclude it outright.
-    // This is the plugin's own documented pattern (README's "Other Configuration"
-    // section) -- an earlier attempt used a custom exclude{} predicate copied from
-    // a different part of the same README (the one for sources living *outside*
-    // the project directory) and it was silently ignored, a known ktlint-gradle
-    // issue with that form; this plain glob is the one actually meant for this case.
-    filter {
-        exclude("**/generated/**")
-    }
-}
+// No ktlint { filter { ... } } block here -- two different forms of it were both
+// silently ignored against the Compose plugin's generated Res.kt/Drawable0.main.kt
+// (a known, still-open ktlint-gradle regression since 12.1.0, confirmed against
+// real output rather than assumed). The exclusion that actually works lives in
+// .editorconfig's [build/generated/**] section instead -- see the comment there.
 
 compose.desktop {
     application {

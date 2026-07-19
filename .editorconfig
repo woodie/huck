@@ -9,3 +9,16 @@ root = true
 # for everything; this opts @Composable-annotated functions out of that,
 # which is the documented fix for ktlint + Compose Multiplatform projects.
 ktlint_function_naming_ignore_when_annotated_with = Composable
+
+# The Gradle-side ktlint { filter { exclude(...) } } DSL (build.gradle.kts) does
+# NOT reliably exclude auto-registered generated source directories -- confirmed
+# against real output here (both a custom exclude{} predicate and the plain glob
+# form failed, even after clearing .gradle's cache), and matches a known,
+# still-open regression in the ktlint-gradle plugin since 12.1.0:
+# https://github.com/JLLeitschuh/ktlint-gradle/issues/746
+# The confirmed-working fix from that thread is this .editorconfig section
+# instead -- ktlint itself (not the Gradle plugin's task-input filtering) reads
+# this and skips the file entirely. Compose's generated Res.kt/Drawable0.main.kt
+# live under build/generated/compose/resourceGenerator/ -- not ours to fix.
+[build/generated/**]
+ktlint = disabled
