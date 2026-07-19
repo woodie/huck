@@ -20,15 +20,17 @@ import androidx.compose.ui.unit.dp
 // fillMaxSize() + a centered Arrangement is what actually centers the dog in the window --
 // a bare Column with no size modifier just sizes to its content and sits top-start of the
 // Window's content slot, which is why an earlier pass rendered top-left instead of centered
-// (confirmed on a real run). Same 280dp-minimum-height overflow risk as HostEntryView (40dp
-// padding + 16dp spacing + 128dp icon + caption lands right at the edge of the window's
-// minimum height) -- tightened the same way and wrapped in verticalScroll defensively.
+// (confirmed on a real run). Padding/spacing match zouk's real SwiftUI numbers (40dp padding,
+// 16dp spacing) -- restored after a real side-by-side screenshot showed zouk's window
+// consistently taller than ours by roughly this same margin (same reasoning as HostEntryView:
+// an earlier pass tightened these out of caution about the 280dp minimum window height, but
+// verticalScroll below is already a floor against that regardless).
 @Composable
 fun ConnectingView() {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
+        modifier = Modifier.fillMaxSize().padding(40.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     ) {
         RunningDogView(modifier = Modifier.size(128.dp))
         Text("Fetching scans...", style = MaterialTheme.typography.caption)

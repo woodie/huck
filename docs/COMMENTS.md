@@ -173,18 +173,20 @@ failure, not a runtime condition, so there's nothing to fall back to.
 A bare `Column` with no size modifier sizes to its content and sits
 top-start of the `Window`'s content slot -- confirmed on a real run (the
 running-dog animation and the host-entry icon both rendered top-left instead
-of centered). Fixed by filling the window and using
-`Arrangement.spacedBy(8.dp, Alignment.CenterVertically)` so the whole block
-centers as a group while keeping spacing between children.
+of centered). Fixed by filling the window and using a centered `Arrangement`
+so the whole block centers as a group while keeping spacing between children.
 
-### Tightened padding/spacing, wrapped in `verticalScroll`
-zouk's SwiftUI numbers (40dp padding, 16dp spacing) plus Material's
-`OutlinedTextField` -- which carries more built-in vertical padding than
-SwiftUI's `TextField` -- overflowed the 280dp minimum window height and
-clipped the Connect button with no way to reach it, also confirmed on a real
-run. Tightened to 24dp/8dp and wrapped both views in `verticalScroll` as a
-floor so nothing is ever unreachable regardless of window size, font scale,
-or platform text metrics.
+### Padding/spacing: tightened, then restored to zouk's real numbers
+zouk's real SwiftUI numbers are 40dp padding and 16dp spacing. An earlier
+pass tightened both to 24dp/8dp because Material's `OutlinedTextField`'s
+built-in padding overflowed the 280dp minimum window height and clipped the
+Connect button with no way to reach it, confirmed on a real run at the time.
+`OutlinedTextField` is gone now (replaced by the compact `HostTextField`),
+and `verticalScroll` on both views is already a floor against that overflow
+regardless of spacing -- so once a real side-by-side screenshot showed
+zouk's window consistently taller than ours by roughly the padding/spacing
+difference, both were restored to zouk's actual 40dp/16dp with no
+reintroduced risk.
 
 ### `HostEntryView`'s Connect button uses explicit gray `ButtonDefaults.buttonColors`
 Material's default `Button` uses `MaterialTheme.colors.primary`, which reads
