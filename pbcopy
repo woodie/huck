@@ -1,0 +1,42 @@
+./gradlew build -x test
+> Task :checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :humane-kotlin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :convertXmlValueResourcesForMain NO-SOURCE
+> Task :copyNonXmlValueResourcesForMain NO-SOURCE
+> Task :prepareComposeResourcesTaskForMain NO-SOURCE
+> Task :generateResourceAccessorsForMain SKIPPED
+> Task :generateActualResourceCollectorsForMain SKIPPED
+> Task :generateComposeResClass SKIPPED
+> Task :assembleMainResources UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :loadKtlintReporters UP-TO-DATE
+> Task :humane-kotlin:compileKotlin UP-TO-DATE
+> Task :convertXmlValueResourcesForDev NO-SOURCE
+> Task :humane-kotlin:compileJava NO-SOURCE
+> Task :copyNonXmlValueResourcesForDev NO-SOURCE
+> Task :humane-kotlin:processResources NO-SOURCE
+> Task :humane-kotlin:classes UP-TO-DATE
+> Task :prepareComposeResourcesTaskForDev NO-SOURCE
+> Task :generateResourceAccessorsForDev SKIPPED
+> Task :humane-kotlin:jar UP-TO-DATE
+> Task :runKtlintCheckOverDevSourceSet NO-SOURCE
+> Task :compileKotlin UP-TO-DATE
+> Task :compileJava NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :ktlintDevSourceSetCheck SKIPPED
+> Task :runKtlintCheckOverKotlinScripts UP-TO-DATE
+> Task :ktlintKotlinScriptCheck UP-TO-DATE
+> Task :runKtlintCheckOverMainSourceSet UP-TO-DATE
+> Task :convertXmlValueResourcesForTest NO-SOURCE
+> Task :copyNonXmlValueResourcesForTest NO-SOURCE
+> Task :prepareComposeResourcesTaskForTest NO-SOURCE
+> Task :generateResourceAccessorsForTest SKIPPED
+> Task :runKtlintCheckOverTestSourceSet NO-SOURCE
+> Task :ktlintTestSourceSetCheck SKIPPED
+
+> Task :ktlintMainSourceSetCheck FAILED
+/Users/woodie/workspace/huck/src/main/kotlin/Main.kt:21:14 A multiline expression should start on a new line
+/Users/woodie/workspace/huck/src/main/kotlin/Main.kt:21:14 Newline expected before expression body
+11 actionable tasks: 1 executed, 10 up-to-date
