@@ -24,11 +24,14 @@ import androidx.compose.ui.unit.sp
 // border sidesteps that entirely: no floating-label space reserved, height is just text line
 // height + this composable's own padding, giving a field close to zouk's actual proportions.
 //
-// Font size is pinned to 14.sp (down from body1's default ~16sp) and vertical padding to 6dp
-// (down from 8dp) -- confirmed on a real side-by-side screenshot that the field was still
-// noticeably taller than zouk's and its text noticeably larger; this combination gets it to
-// roughly zouk's actual proportions (about 80% of the previous height) without shrinking it to
-// the point of clipping the cursor or descenders.
+// Font size is pinned to 14.sp (down from body1's default ~16sp). Vertical padding went
+// 8dp -> 6dp -> 1dp across two real side-by-side screenshots -- the second gave exact pixel
+// measurements (this field 72px tall vs zouk's 52px, a real screenshot at what's almost
+// certainly 2x Retina scale). BasicTextField has no hidden decoration/padding beyond what's
+// set here plus the text's own line height, so the ~20px gap (~10dp at 2x) is assumed to be
+// almost entirely padding, not line height -- reducing padding by that same ~10dp (12dp total
+// -> 2dp total, i.e. 6dp -> 1dp per side) should land close to 52px. Confirm against another
+// real screenshot; this is a calculated estimate, not a compiled/verified number.
 //
 // textAlign defaults to Start (a toolbar/URL-bar field reads left to right); HostEntryView
 // passes Center to match zouk's centered host field on that screen, confirmed on a real run.
@@ -43,7 +46,7 @@ fun HostTextField(
     var fieldModifier =
         modifier
             .border(1.dp, MaterialTheme.colors.onSurface.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = 12.dp, vertical = 1.dp)
 
     if (onSubmit != null) {
         fieldModifier =

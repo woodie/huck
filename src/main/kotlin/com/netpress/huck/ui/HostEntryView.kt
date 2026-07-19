@@ -2,7 +2,9 @@ package com.netpress.huck.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,6 +63,14 @@ fun HostEntryView(
         Button(
             onClick = onConnect,
             enabled = hostInput.isNotBlank(),
+            // Material's Button enforces a 36dp minimum height (ButtonDefaults.MinHeight)
+            // plus 8dp vertical content padding regardless of what's inside -- confirmed way
+            // too big next to zouk's compact native button on a real run. An explicit height
+            // overrides that internal minimum (Button's own defaultMinSize only expands into
+            // slack the incoming constraints allow), paired with near-zero vertical content
+            // padding so the smaller height doesn't clip the label.
+            modifier = Modifier.height(28.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
             // A native macOS button is a neutral gray, not an accent color -- Material's
             // default Button uses MaterialTheme.colors.primary, which read as bright purple
             // against zouk's plain gray Connect button in a real side-by-side screenshot.
@@ -72,7 +82,7 @@ fun HostEntryView(
                     disabledContentColor = Color(0xFFAAAAAA),
                 ),
         ) {
-            Text("Connect")
+            Text("Connect", style = MaterialTheme.typography.body2)
         }
     }
 }

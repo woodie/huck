@@ -217,6 +217,19 @@ screenshot next to zouk's plain native-gray Connect button. No custom
 per-button here; worth revisiting as a theme-level fix if other buttons
 (the toolbar refresh icon, "Try Again") need the same treatment.
 
+### Connect button: explicit `height(28.dp)` + near-zero `contentPadding`
+Material's `Button` enforces a 36dp minimum height (internally,
+`Modifier.defaultMinSize(minHeight = ButtonDefaults.MinHeight)`) plus 8dp of
+vertical content padding regardless of what's inside -- confirmed way too
+big next to zouk's compact native button on a real run ("the connect
+button is way too big"). An explicit `Modifier.height(28.dp)` applied at
+the call site overrides that internal minimum (Button's own
+`defaultMinSize` only expands into slack the incoming constraints still
+allow, so a tighter external constraint wins), paired with
+`contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)` and
+the label set to `MaterialTheme.typography.body2` (smaller than the
+default `button` style) so the shorter height doesn't clip the text.
+
 ## src/main/kotlin/com/netpress/huck/ui/ScanGridView.kt
 
 ### Refresh `IconButton` + a host field that submits on Enter
