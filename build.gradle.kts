@@ -34,8 +34,13 @@ dependencies {
     implementation("org.jetbrains.compose.material:material:1.11.0")
 
     // Icons.Filled.Refresh for ScanGridView's toolbar -- direct coordinate for the
-    // same "specify dependency directly" reason as compose.material above.
-    implementation("org.jetbrains.compose.material:material-icons-core:1.11.0")
+    // same "specify dependency directly" reason as compose.material above. Doesn't
+    // track the 1.11.0 plugin version like the others here: confirmed via Maven
+    // Central that this artifact's last published version is 1.7.3 -- JetBrains
+    // stopped cutting new releases of it after that, so pinned there instead. The
+    // icon set's API (Icons.Filled.*) hasn't changed since, so this is safe to mix
+    // with the newer 1.11.0 runtime.
+    implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
 
     // Composite-build dependency (see settings.gradle.kts) -- Gradle substitutes
     // this coordinate with the ../humane-kotlin project automatically because
