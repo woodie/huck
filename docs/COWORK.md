@@ -87,6 +87,22 @@ What's real:
 - `.github/workflows/windows-package.yml` has still never actually run --
   the `packageMsi` output path it uploads is Compose Desktop's documented
   default, not yet confirmed against a real CI run.
+- Visual fidelity against zouk on `HostEntryView`/`ConnectingView`, tuned
+  through several rounds of real side-by-side screenshots (including exact
+  pixel measurements at one point) rather than guessed once and left:
+  window title (`"Huck scan retriever"`), window height (310dp, floor and
+  initial size both), `RunningDogView`'s GIF frames rendering at their real
+  per-frame offset instead of all at `(0, 0)`, `HostTextField` (a compact
+  `BasicTextField` replacing Material's `OutlinedTextField`, whose forced
+  ~56dp height and floating-label padding never matched zouk's native
+  field), and the Connect button's color (explicit gray, not Material's
+  default purple accent) and size (Material's `Button` forces a 36dp
+  minimum height regardless of content, overridden with an explicit
+  smaller one). See `docs/COMMENTS.md` for the specifics and the reasoning
+  behind each -- there's real history here, not just final numbers.
+  **`ScanGridView` (the toolbar/list screen) has not had this same
+  side-by-side treatment yet** -- only `HostEntryView`/`ConnectingView`
+  have been checked against zouk's real screenshots pixel-for-pixel.
 
 ### Not done yet (in rough order)
 
@@ -96,7 +112,11 @@ What's real:
    menu, the "saving..." toast, and the delete-confirmation dialog.
 2. `AppModel` doesn't expose `selectedScanID`/`savingMessage`/
    `savedMessage`/`pendingDelete` yet -- needed before any of the above.
-3. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
+3. `ScanGridView` itself hasn't been visually compared against zouk's real
+   screenshots the way `HostEntryView`/`ConnectingView` have -- worth a same
+   side-by-side pass (toolbar sizing, list row layout, footer) before
+   trusting it matches.
+4. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
    a real `windows-latest` run -- still unconfirmed.
 
 ## Dependency on humane-kotlin
@@ -136,3 +156,11 @@ needing to be excluded from lint, and the window-centering/toolbar bugs
 above) -- `make build`/`make test` are confirmed green and the app has been
 run and its screens reviewed, but every future change still needs the same
 real-hardware round trip before it's trusted.
+
+For visual/layout tuning specifically, plain side-by-side screenshots
+against zouk got most of the way there, but exact pixel measurements (e.g.
+"this field is 72px tall, zouk's is 52px") turned a vague "still too tall"
+into an actual calculation (assumed 2x Retina scale, worked out how much of
+that gap was padding vs. line height) -- worth asking for real pixel
+measurements rather than iterating blind on "smaller"/"a bit less" when
+sizing needs to land close on the first real try.
