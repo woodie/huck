@@ -78,8 +78,13 @@ ktlint {
     // build/generated/compose/resourceGenerator) as a real Kotlin source dir on the
     // main source set, so ktlint picks it up too -- it's not ours to fix (naming,
     // formatting, all of it is JetBrains' generated code), so exclude it outright.
+    // This is the plugin's own documented pattern (README's "Other Configuration"
+    // section) -- an earlier attempt used a custom exclude{} predicate copied from
+    // a different part of the same README (the one for sources living *outside*
+    // the project directory) and it was silently ignored, a known ktlint-gradle
+    // issue with that form; this plain glob is the one actually meant for this case.
     filter {
-        exclude { it.file.path.contains("${File.separator}generated${File.separator}") }
+        exclude("**/generated/**")
     }
 }
 

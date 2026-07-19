@@ -48,7 +48,7 @@ reviewed against zouk's real screenshots).
 File and type names deliberately match `zouk`'s `Sources/ZoukKit/` 1:1, so
 porting the next feature doesn't need a name-translation step:
 
-| zouk (Swift)         | huck (Kotlin)         |
+| zouk (Swift)          | huck (Kotlin)         |
 | --------------------- | --------------------- |
 | `ContentView.swift`   | `ui/ContentView.kt`   |
 | `AppModel.swift`      | `AppModel.kt`         |
