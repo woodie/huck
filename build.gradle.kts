@@ -16,7 +16,11 @@ kotlin {
 
 dependencies {
     implementation(compose.desktop.currentOs)
-    implementation(compose.material)
+
+    // Direct coordinate, not the compose.material Gradle-plugin alias --
+    // that alias is deprecated as of Compose Multiplatform 1.10+ ("Specify
+    // dependency directly"). Version tracks the compose plugin version above.
+    implementation("org.jetbrains.compose.material:material:1.11.0")
 
     // Composite-build dependency (see settings.gradle.kts) -- Gradle substitutes
     // this coordinate with the ../humane-kotlin project automatically because
