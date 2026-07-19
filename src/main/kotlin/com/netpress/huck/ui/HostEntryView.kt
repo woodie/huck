@@ -10,7 +10,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,7 +26,9 @@ import androidx.compose.ui.unit.dp
 // Material's OutlinedTextField, which carries more built-in vertical padding than SwiftUI's
 // TextField, also overflowed the 280dp minimum window height and clipped the Connect button --
 // tightened padding/spacing here, and wrapped in verticalScroll as a floor so nothing is ever
-// unreachable regardless of window size, font scale, or platform text metrics.
+// unreachable regardless of window size, font scale, or platform text metrics. OutlinedTextField
+// itself was later swapped for the shared HostTextField (see that file) -- its ~56dp forced
+// minimum height was confirmed too tall on a real run.
 @Composable
 fun HostEntryView(
     hostInput: String,
@@ -47,11 +48,12 @@ fun HostEntryView(
             style = MaterialTheme.typography.caption,
         )
 
-        OutlinedTextField(
+        HostTextField(
             value = hostInput,
             onValueChange = onHostInputChange,
             modifier = Modifier.width(280.dp),
-            singleLine = true,
+            textAlign = TextAlign.Center,
+            onSubmit = { if (hostInput.isNotBlank()) onConnect() },
         )
 
         Button(onClick = onConnect, enabled = hostInput.isNotBlank()) {

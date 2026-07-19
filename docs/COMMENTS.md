@@ -114,12 +114,37 @@ renamed to `running_dog.gif` when moved. Read via
 `Class.getResourceAsStream("/running_dog.gif")` (a plain JVM classpath
 resource) instead of `Res.drawable`.
 
-### `composited()`'s full-canvas repaint per frame
-GIF frames are often smaller than the logical screen and meant to be layered
-over the previous frame rather than read standalone. Painting each decoded
-frame onto a full-size canvas (matching `reader.getWidth(0)`/`getHeight(0)`)
-avoids torn/partial frames for GIFs that rely on that layering; skipped when
-a frame already matches the canvas size.
+### `composite()`'s per-frame offset and disposal handling
+An earlier version drew every decoded frame at canvas position `(0, 0)`,
+which only renders correctly for a frame that happens to be full-canvas --
+confirmed on a real run that every other frame in `running_dog.gif` is
+smaller than the logical screen, positioned at its own `(left, top)` offset,
+and rendered shifted up-left as a result. Fixed by keeping one running
+`BufferedImage` canvas across all frames and reading each frame's real
+offset plus its GIF89a disposal method from `ImageReader.getImageMetadata`'s
+`ImageDescriptor`/`GraphicControlExtension` nodes (`imageLeftPosition`/
+`imageTopPosition`, `disposalMethod`) -- `restoreToBackgroundColor` clears
+the frame's own rectangle back to transparent afterward,
+`restoreToPrevious` reverts the canvas to its pre-frame snapshot, anything
+else (`none`/`doNotDispose`) leaves the canvas as-is for the next frame to
+draw on top of, matching what the GIF spec actually says playback should do.
+
+## src/main/kotlin/com/netpress/huck/ui/HostTextField.kt
+
+### `BasicTextField`, not Material's `OutlinedTextField`
+`OutlinedTextField` enforces a hardcoded ~56dp minimum height
+(`TextFieldDefaults.MinHeight`) to reserve space for its floating label,
+even with no label passed -- confirmed too tall on a real run, visually
+dwarfing the 64dp app icon next to it on `HostEntryView` and not matching
+zouk's compact native macOS field. `BasicTextField` plus a thin manual
+`border()` sidesteps the floating-label sizing entirely: height is just
+text line height plus this composable's own padding. Shared by
+`HostEntryView` and `ScanGridView`'s toolbar rather than duplicated.
+
+### `textAlign` defaults to `Start`, `HostEntryView` passes `Center`
+A toolbar/URL-bar field (`ScanGridView`) reads left to right; zouk's actual
+`HostEntryView` centers its host field, confirmed on a real run comparing
+against zouk's own screenshots.
 
 ## src/main/kotlin/com/netpress/huck/ui/AppIconImage.kt
 

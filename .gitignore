@@ -16,3 +16,8 @@ out/
 
 # Logs
 *.log
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~

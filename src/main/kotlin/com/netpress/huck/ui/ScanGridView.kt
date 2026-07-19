@@ -14,18 +14,12 @@ import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.netpress.huck.ConnectionState
 import com.netpress.huck.ScanEntry
@@ -61,19 +55,11 @@ fun ScanGridView(
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
             }
 
-            OutlinedTextField(
+            HostTextField(
                 value = hostInput,
                 onValueChange = onHostInputChange,
-                modifier =
-                    Modifier.weight(1f).onPreviewKeyEvent { event ->
-                        if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
-                            onSubmitHost()
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                singleLine = true,
+                modifier = Modifier.weight(1f),
+                onSubmit = onSubmitHost,
             )
         }
 
