@@ -75,7 +75,7 @@ What's real:
   centered `Arrangement` (a bare `Column` sizes to content and sits
   top-start otherwise -- caught on a real run, not by inspection).
   `HostEntryView`/`ConnectingView` are also wrapped in `verticalScroll` as a
-  floor against the 280dp minimum window height clipping content.
+  floor against the 315dp minimum window height clipping content.
 - `RunningDogView`'s real animated-GIF frames, decoded via `ImageIO` (see
   "Toolchain gap" below and `docs/COMMENTS.md` for why, not Skia's `Codec`).
 - `ScanGridView`'s toolbar matches zouk's real one: a refresh `IconButton`,
