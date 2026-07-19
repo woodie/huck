@@ -57,6 +57,13 @@ isn't a port of anything in `zouk` -- it just hosts the `Window` and hands
 off to `ContentView`, which is the real root view and does have a direct
 `zouk` counterpart (`ContentView.swift`).
 
+### Window title: `"Huck scan retriever"`
+Matches zouk's real window title (`"Zouk scan retriever"`), confirmed
+against a real side-by-side screenshot comparison of the two apps. Set once
+here rather than per-screen -- `Window`'s title doesn't change as
+`ContentView` branches between `HostEntryView`/`ConnectingView`/
+`ScanGridView`, and zouk's doesn't either.
+
 ## src/main/kotlin/com/netpress/huck/ScanClient.kt
 
 ### `java.net.http.HttpClient`, not a third-party HTTP library
@@ -178,6 +185,14 @@ clipped the Connect button with no way to reach it, also confirmed on a real
 run. Tightened to 24dp/8dp and wrapped both views in `verticalScroll` as a
 floor so nothing is ever unreachable regardless of window size, font scale,
 or platform text metrics.
+
+### `HostEntryView`'s Connect button uses explicit gray `ButtonDefaults.buttonColors`
+Material's default `Button` uses `MaterialTheme.colors.primary`, which reads
+as a bright purple/indigo accent -- confirmed against a real side-by-side
+screenshot next to zouk's plain native-gray Connect button. No custom
+`MaterialTheme` color palette exists yet to fix this globally, so it's set
+per-button here; worth revisiting as a theme-level fix if other buttons
+(the toolbar refresh icon, "Try Again") need the same treatment.
 
 ## src/main/kotlin/com/netpress/huck/ui/ScanGridView.kt
 

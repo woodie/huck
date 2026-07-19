@@ -19,7 +19,10 @@ fun main() =
     application {
         Window(
             onCloseRequest = ::exitApplication,
-            title = "Huck",
+            // Matches zouk's real window title ("Zouk scan retriever") -- confirmed against a
+            // real screenshot comparison. Set once here, not per-screen: Window's title doesn't
+            // change as ContentView branches between HostEntryView/ConnectingView/ScanGridView.
+            title = "Huck scan retriever",
             state = rememberWindowState(size = DpSize(360.dp, 280.dp)),
         ) {
             // Window's size (above) only sets the initial size -- it's still user-resizable below that unless minimumSize is set on the underlying AWT window too.

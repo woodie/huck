@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -56,7 +58,20 @@ fun HostEntryView(
             onSubmit = { if (hostInput.isNotBlank()) onConnect() },
         )
 
-        Button(onClick = onConnect, enabled = hostInput.isNotBlank()) {
+        Button(
+            onClick = onConnect,
+            enabled = hostInput.isNotBlank(),
+            // A native macOS button is a neutral gray, not an accent color -- Material's
+            // default Button uses MaterialTheme.colors.primary, which read as bright purple
+            // against zouk's plain gray Connect button in a real side-by-side screenshot.
+            colors =
+                ButtonDefaults.buttonColors(
+                    backgroundColor = Color(0xFFE0E0E0),
+                    contentColor = Color.Black,
+                    disabledBackgroundColor = Color(0xFFF0F0F0),
+                    disabledContentColor = Color(0xFFAAAAAA),
+                ),
+        ) {
             Text("Connect")
         }
     }
