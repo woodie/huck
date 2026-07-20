@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.netpress"
-version = "0.2.0"
+version = "0.2.1"
 
 kotlin {
     jvmToolchain(17)
@@ -91,7 +91,29 @@ compose.desktop {
             // OS as well.
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Huck"
-            packageVersion = "0.2.0"
+            packageVersion = "0.2.1"
+
+            // jpackage builds the bundled app a real, jlink-trimmed JDK image, not
+            // a full JRE -- by default that image only includes whatever modules
+            // this Gradle plugin decides it needs, and nothing here declares that
+            // list explicitly. Confirmed as a real, launch-breaking bug on the
+            // real installed v0.2.0 .msi: connecting threw
+            // "java/net/http/HttpClient" (a NoClassDefFoundError, since
+            // ScanClient.kt's HttpClient import lives in the java.net.http
+            // module, which wasn't in the trimmed runtime) and closed the app on
+            // OK. FileDialog/Desktop.open (java.desktop) and
+            // Preferences.userNodeForPackage (java.prefs) are real candidates to
+            // hit the exact same gap the moment those code paths run too --
+            // they're all used from inside private/suspend functions rather than
+            // top-level, easy-to-detect call sites. Rather than hand-enumerate
+            // every JDK module actually reachable at runtime (and risk another
+            // round of real-hardware-only whack-a-mole with no local Kotlin
+            // toolchain to test against), includeAllModules bundles the complete
+            // JDK instead of a trimmed one -- a real installer-size tradeoff
+            // (JetBrains' own documented escape hatch for exactly this failure
+            // mode), accepted here since correctness beats install size for a
+            // single-purpose utility app like this one.
+            includeAllModules = true
 
             // Without this, jpackage falls back to a generic default icon (a
             // plain coffee-cup/Duke-style placeholder) for the installed .exe,

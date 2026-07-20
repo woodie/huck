@@ -149,10 +149,16 @@ What's real:
    *functionally* working on real hardware, but a same pixel-for-pixel
    side-by-side pass (cell sizing/spacing, footer layout) hasn't happened
    yet.
-3. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
-   a real `windows-latest` run, and that a `v*` tag push actually attaches
-   it to a GitHub Release -- still unconfirmed until the v0.2.0 tag below
-   is pushed and the workflow run is checked.
+3. CI (`windows-package.yml`) is now confirmed producing a working `.msi`
+   on a real `windows-latest` run and attaching it to a real GitHub
+   Release on a `v*` tag push (`v0.2.0`:
+   https://github.com/woodie/huck/releases/tag/v0.2.0). That installed
+   `.msi` itself crashed on `connect()` with a `NoClassDefFoundError`
+   (`java/net/http/HttpClient`) -- jpackage's trimmed JDK image didn't
+   include the `java.net.http` module -- fixed in `v0.2.1` via
+   `includeAllModules = true` (see `docs/COMMENTS.md`). Still needs a real
+   installed-`.msi` smoke test to confirm `v0.2.1` actually launches and
+   connects.
 
 ## Dependency on humane-kotlin
 

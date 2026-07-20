@@ -75,6 +75,25 @@ drawn asset, so the packaged app and the in-app icon actually match. No
 macOS-side `iconFile` yet (the `Dmg` target has the same generic-icon gap),
 since that wasn't asked for this pass.
 
+### `includeAllModules = true`, after a real `NoClassDefFoundError` on the packaged .msi
+The installed v0.2.0 `.msi` crashed the instant `connect()` ran --
+`"java/net/http/HttpClient"` in a generic error dialog, OK closing the
+whole app. Root cause: `jpackage` bundles a `jlink`-trimmed JDK image, not
+a full JRE, and this file didn't declare which JDK modules that image
+should include -- `java.net.http` (used by `ScanClient.kt`) wasn't in
+whatever the plugin's default trimmed set turned out to be. `java.desktop`
+(`FileDialog`/`Desktop.open` in `AppModel.kt`) and `java.prefs`
+(`Preferences.userNodeForPackage`) are real candidates to hit the exact
+same failure the first time those code paths actually run, since none of
+the three are called from an easy-to-statically-detect top-level site.
+Rather than hand-enumerate the full reachable module set and risk a second
+(or third) round of this same bug discovered only on real hardware (no
+local Kotlin/jpackage toolchain to test against in this account's usual
+dev loop), `includeAllModules = true` bundles the complete JDK instead of
+a trimmed one -- JetBrains' own documented tradeoff for this exact failure
+mode, accepted here since correctness matters more than install size for a
+single-purpose utility app.
+
 ### `.editorconfig`'s `ktlint_function_naming_ignore_when_annotated_with`
 Compose's convention for `@Composable` UI functions is PascalCase
 (`HostEntryView`, `ConnectingView`, `RunningDogView`, ...) -- they read as
