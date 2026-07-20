@@ -1,8 +1,11 @@
 package com.netpress.huck.ui
 
+import androidx.compose.foundation.ContextMenuArea
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -26,6 +29,7 @@ import androidx.compose.material.Button
 import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
@@ -40,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,14 +53,15 @@ import com.netpress.huck.ScanEntry
 import java.time.Instant
 
 // Ports zouk's ScanGridView (Sources/ZoukKit/ScanGridView.swift). Real now: the grid layout,
-// selection (click a cell to toggle, click empty space to deselect), the footer bar (selected
-// scan's date/size + a delete button, falling back to a scan count), and the delete-confirmation
-// dialog. Still deferred, see docs/COWORK.md: real PDF thumbnails (needs PDFBox, a new
-// dependency -- DogEaredDocumentIcon below is zouk's own placeholder shape for an uncached
-// thumbnail, ported directly since it's just vector paths, no PDF rendering involved), the
-// savingMessage flash during a real save (only delete()'s failure flash is wired up so far),
-// double-click download+open, and the right-click context menu (Download/Fast Download/Move to
-// Trash) -- so for now every scan renders as if its thumbnail were never cached.
+// selection (click a cell to toggle, click empty space to deselect), double-click to
+// download-and-open, a right-click context menu (Download and Open / Download to... / Fast
+// Download / Move to Trash), the footer bar (savedMessage, then selected scan's date/size + a
+// delete button, falling back to a scan count -- same priority order as zouk), a floating
+// "Saving ...…" capsule overlay, and the delete-confirmation dialog. Still deferred, see
+// docs/COWORK.md: real PDF thumbnails (needs PDFBox, a new dependency -- DogEaredDocumentIcon
+// below is zouk's own placeholder shape for an uncached thumbnail, ported directly since it's
+// just vector paths, no PDF rendering involved) -- so every scan renders with that placeholder
+// for now.
 //
 // Toolbar matches zouk's real one -- a refresh icon button, not a text button, and a host field
 // in place of a separate "Change server" button. Enter in the field re-runs connect() against
@@ -68,6 +74,7 @@ fun ScanGridView(
     selectedScan: ScanEntry?,
     pendingDelete: ScanEntry?,
     savingMessage: String?,
+    savedMessage: String?,
     isBusy: Boolean,
     hostInput: String,
     onHostInputChange: (String) -> Unit,
@@ -75,97 +82,134 @@ fun ScanGridView(
     onRefresh: () -> Unit,
     onToggle: (ScanEntry) -> Unit,
     onDeselectAll: () -> Unit,
+    onOpen: (ScanEntry) -> Unit,
+    onDownloadWithoutOpening: (ScanEntry) -> Unit,
+    onFastDownload: (ScanEntry) -> Unit,
     onRequestDelete: (ScanEntry) -> Unit,
     onConfirmDelete: (ScanEntry) -> Unit,
     onCancelDelete: () -> Unit,
+    // Right-click "Move to Trash" -- distinct from onRequestDelete/onConfirmDelete, since zouk's
+    // own context menu deliberately skips the confirmation dialog for this path (see
+    // AppModel.requestDelete's comment).
+    onDeleteImmediately: (ScanEntry) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            // Padding tightened 8dp -> 4dp (roughly 80% of the original total band height,
-            // matching the footer's own 40dp -> 32dp below) -- confirmed too tall on a real
-            // side-by-side of both bars against zouk.
-            modifier = Modifier.fillMaxWidth().padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CircularIconButton(
-                onClick = onRefresh,
-                enabled = !isBusy,
-                icon = Icons.Filled.Refresh,
-                contentDescription = "Refresh",
-            )
+    // A Box, not just the Column directly -- the Column holds the real layout (toolbar/content/
+    // footer), and the saving-message capsule below is a sibling overlay on top of it, matching
+    // zouk's own .overlay { ... } modifier (which applies to the whole VStack, not just one
+    // piece of it).
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                // Padding tightened 8dp -> 4dp (roughly 80% of the original total band height,
+                // matching the footer's own 40dp -> 32dp below) -- confirmed too tall on a real
+                // side-by-side of both bars against zouk.
+                modifier = Modifier.fillMaxWidth().padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularIconButton(
+                    onClick = onRefresh,
+                    enabled = !isBusy,
+                    icon = Icons.Filled.Refresh,
+                    contentDescription = "Refresh",
+                )
 
-            HostTextField(
-                value = hostInput,
-                onValueChange = onHostInputChange,
-                modifier = Modifier.weight(1f),
-                onSubmit = onSubmitHost,
+                HostTextField(
+                    value = hostInput,
+                    onValueChange = onHostInputChange,
+                    modifier = Modifier.weight(1f),
+                    onSubmit = onSubmitHost,
+                )
+            }
+
+            Divider()
+
+            Box(
+                // weight(1f), not fillMaxSize() -- this Column also has a Divider + footer Row
+                // below it. fillMaxSize() alone claims the *entire* window height regardless of
+                // what follows in the Column, leaving the footer measured at zero height (present
+                // but invisible) rather than sharing space with it. Confirmed on a real run: the
+                // footer never actually rendered, even before selection/delete were ported.
+                modifier =
+                    Modifier.weight(1f).fillMaxWidth().padding(12.dp).clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onDeselectAll,
+                    ),
+            ) {
+                when {
+                    // Both of these get their own fillMaxSize() + Center Box -- the parent Box
+                    // above is left at its default top-start alignment specifically so the grid
+                    // branch below (which already fills/positions itself correctly) isn't also
+                    // recentered as a side effect. Confirmed on a real run: the empty-state message
+                    // was rendering top-left instead of centered like zouk's real Spacer-wrapped
+                    // VStack.
+                    state is ConnectionState.Failed ->
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(state.message, style = MaterialTheme.typography.body1)
+                                Button(onClick = onRefresh) { Text("Try Again") }
+                            }
+                        }
+
+                    scans.isEmpty() ->
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(if (isBusy) "Loading..." else "No scans found.")
+                        }
+
+                    else ->
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 120.dp),
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        ) {
+                            items(scans, key = { it.id }) { scan ->
+                                ScanThumbnailCell(
+                                    scan = scan,
+                                    isSelected = scan.id == selectedScanID,
+                                    onToggle = { onToggle(scan) },
+                                    onOpen = { onOpen(scan) },
+                                    onDownloadWithoutOpening = { onDownloadWithoutOpening(scan) },
+                                    onFastDownload = { onFastDownload(scan) },
+                                    onDeleteImmediately = { onDeleteImmediately(scan) },
+                                )
+                            }
+                        }
+                }
+            }
+
+            Divider()
+
+            ScanGridFooter(
+                savedMessage = savedMessage,
+                selectedScan = selectedScan,
+                scanCount = scans.size,
+                onDelete = onRequestDelete,
             )
         }
 
-        Divider()
-
-        Box(
-            // weight(1f), not fillMaxSize() -- this Column also has a Divider + footer Row
-            // below it. fillMaxSize() alone claims the *entire* window height regardless of
-            // what follows in the Column, leaving the footer measured at zero height (present
-            // but invisible) rather than sharing space with it. Confirmed on a real run: the
-            // footer never actually rendered, even before selection/delete were ported.
-            modifier =
-                Modifier.weight(1f).fillMaxWidth().padding(12.dp).clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDeselectAll,
-                ),
-        ) {
-            when {
-                // Both of these get their own fillMaxSize() + Center Box -- the parent Box
-                // above is left at its default top-start alignment specifically so the grid
-                // branch below (which already fills/positions itself correctly) isn't also
-                // recentered as a side effect. Confirmed on a real run: the empty-state message
-                // was rendering top-left instead of centered like zouk's real Spacer-wrapped
-                // VStack.
-                state is ConnectionState.Failed ->
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(state.message, style = MaterialTheme.typography.body1)
-                            Button(onClick = onRefresh) { Text("Try Again") }
-                        }
-                    }
-
-                scans.isEmpty() ->
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(if (isBusy) "Loading..." else "No scans found.")
-                    }
-
-                else ->
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 120.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    ) {
-                        items(scans, key = { it.id }) { scan ->
-                            ScanThumbnailCell(
-                                scan = scan,
-                                isSelected = scan.id == selectedScanID,
-                                onToggle = { onToggle(scan) },
-                            )
-                        }
-                    }
+        // Matches zouk's own overlay { ... } -- a translucent capsule, centered over the whole
+        // screen, shown only while a save is in flight (or during delete()'s "Couldn't delete
+        // ..." failure flash). thinMaterial has no direct Compose equivalent (no built-in
+        // background blur), so this uses a plain semi-transparent Surface instead -- reads as a
+        // toast/HUD rather than a true frosted-glass panel, a real but minor visual gap.
+        if (savingMessage != null) {
+            Surface(
+                modifier = Modifier.align(Alignment.Center),
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colors.surface.copy(alpha = 0.9f),
+                elevation = 4.dp,
+            ) {
+                Text(
+                    savingMessage,
+                    style = MaterialTheme.typography.body2,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                )
             }
         }
-
-        Divider()
-
-        ScanGridFooter(
-            savingMessage = savingMessage,
-            selectedScan = selectedScan,
-            scanCount = scans.size,
-            onDelete = onRequestDelete,
-        )
     }
 
     // presenting uses pendingDelete, not selectedScan, matching zouk -- title mirrors the web
@@ -186,7 +230,7 @@ fun ScanGridView(
 
 @Composable
 private fun ScanGridFooter(
-    savingMessage: String?,
+    savedMessage: String?,
     selectedScan: ScanEntry?,
     scanCount: Int,
     onDelete: (ScanEntry) -> Unit,
@@ -203,8 +247,10 @@ private fun ScanGridFooter(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // savedMessage takes priority over the selected scan's own info, matching zouk's footer
+        // exactly (if let saved = model.savedMessage { ... } else if let scan = ... ).
         when {
-            savingMessage != null -> Text(savingMessage, style = MaterialTheme.typography.caption)
+            savedMessage != null -> Text(savedMessage, style = MaterialTheme.typography.caption)
 
             selectedScan != null ->
                 Row(
@@ -341,55 +387,78 @@ private fun ScanThumbnailCell(
     scan: ScanEntry,
     isSelected: Boolean,
     onToggle: () -> Unit,
+    onOpen: () -> Unit,
+    onDownloadWithoutOpening: () -> Unit,
+    onFastDownload: () -> Unit,
+    onDeleteImmediately: () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier =
-            Modifier.clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onToggle,
-            ),
+    // detectTapGestures(onTap, onDoubleTap) replaces the plain clickable() this started with --
+    // clickable() only recognizes single taps, so a real double-click just fired onToggle twice
+    // in a row (select, then immediately deselect), confirmed on a real run. detectTapGestures
+    // gives double-tap explicit precedence itself (a second tap within the system's double-tap
+    // timeout consumes both taps and fires only onDoubleTap, matching zouk's own
+    // .exclusively(before:) between its two TapGesture recognizers) -- no manual timing/state
+    // needed here.
+    ContextMenuArea(
+        items = {
+            listOf(
+                ContextMenuItem("Download and Open", onOpen),
+                ContextMenuItem("Download to…", onDownloadWithoutOpening),
+                ContextMenuItem("Fast Download", onFastDownload),
+                // Skips the confirmation dialog deliberately, matching zouk's own comment on
+                // this exact menu item -- only the footer trash button confirms.
+                ContextMenuItem("Move to Trash", onDeleteImmediately),
+            )
+        },
     ) {
-        Box(
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier =
-                Modifier
-                    // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill *plus*
-                    // a colored shadow/glow (55% opacity, 7pt radius), which is what actually
-                    // makes it read as a soft blue halo around the thumbnail rather than a flat
-                    // background square. shadow()/background() must come BEFORE padding() here
-                    // -- modifier order matters: padding placed first (outermost) confines the
-                    // paint to the exact icon bounds, since it shrinks the space handed to the
-                    // modifiers after it, leaving no visible margin at all except through the
-                    // icon's own fold-shaped notch (confirmed on a real run -- that's exactly
-                    // where the blue was peeking through and nowhere else). Padding placed last
-                    // (innermost) instead only pushes the *child* inward, so shadow/background
-                    // paint across the full padded box, with the icon sitting inset within it.
-                    .shadow(
-                        elevation = if (isSelected) 7.dp else 0.dp,
-                        shape = RoundedCornerShape(10.dp),
-                        clip = false,
-                        ambientColor = SelectionBlue.copy(alpha = 0.55f),
-                        spotColor = SelectionBlue.copy(alpha = 0.55f),
-                    ).background(
-                        if (isSelected) SelectionBlue.copy(alpha = 0.15f) else Color.Transparent,
-                        RoundedCornerShape(10.dp),
-                    ).padding(14.dp),
+                Modifier.pointerInput(scan.id) {
+                    detectTapGestures(onTap = { onToggle() }, onDoubleTap = { onOpen() })
+                },
         ) {
-            DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
-        }
+            Box(
+                modifier =
+                    Modifier
+                        // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill
+                        // *plus* a colored shadow/glow (55% opacity, 7pt radius), which is what
+                        // actually makes it read as a soft blue halo around the thumbnail rather
+                        // than a flat background square. shadow()/background() must come BEFORE
+                        // padding() here -- modifier order matters: padding placed first
+                        // (outermost) confines the paint to the exact icon bounds, since it
+                        // shrinks the space handed to the modifiers after it, leaving no visible
+                        // margin at all except through the icon's own fold-shaped notch
+                        // (confirmed on a real run -- that's exactly where the blue was peeking
+                        // through and nowhere else). Padding placed last (innermost) instead only
+                        // pushes the *child* inward, so shadow/background paint across the full
+                        // padded box, with the icon sitting inset within it.
+                        .shadow(
+                            elevation = if (isSelected) 7.dp else 0.dp,
+                            shape = RoundedCornerShape(10.dp),
+                            clip = false,
+                            ambientColor = SelectionBlue.copy(alpha = 0.55f),
+                            spotColor = SelectionBlue.copy(alpha = 0.55f),
+                        ).background(
+                            if (isSelected) SelectionBlue.copy(alpha = 0.15f) else Color.Transparent,
+                            RoundedCornerShape(10.dp),
+                        ).padding(14.dp),
+            ) {
+                DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+            }
 
-        Text(
-            scan.name,
-            style = MaterialTheme.typography.caption,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = if (isSelected) Color.White else MaterialTheme.colors.onSurface,
-            modifier =
-                Modifier
-                    .background(if (isSelected) SelectionBlue else Color.Transparent, RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-        )
+            Text(
+                scan.name,
+                style = MaterialTheme.typography.caption,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (isSelected) Color.White else MaterialTheme.colors.onSurface,
+                modifier =
+                    Modifier
+                        .background(if (isSelected) SelectionBlue else Color.Transparent, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
     }
 }

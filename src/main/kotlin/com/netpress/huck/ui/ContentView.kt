@@ -27,6 +27,7 @@ fun ContentView(
                 selectedScan = model.selectedScan,
                 pendingDelete = model.pendingDelete,
                 savingMessage = model.savingMessage,
+                savedMessage = model.savedMessage,
                 isBusy = model.isBusy,
                 hostInput = model.hostInput,
                 onHostInputChange = { model.hostInput = it },
@@ -34,8 +35,30 @@ fun ContentView(
                 onRefresh = { scope.launch { model.connect() } },
                 onToggle = { model.toggle(it) },
                 onDeselectAll = { model.selectedScanID = null },
+                // Double-click (context menu's "Download and Open") and the other three menu
+                // items, matching zouk's real ScanThumbnailCell .contextMenu exactly.
+                onOpen = { scope.launch { model.open(it) } },
+                onDownloadWithoutOpening = { scope.launch { model.downloadWithoutOpening(it) } },
+                onFastDownload = { scope.launch { model.fastDownload(it) } },
+                // Skips the confirmation dialog deliberately, matching zouk's own comment on
+                // this exact menu item and AppModel.requestDelete's own doc comment.
+                onDeleteImmediately = { scope.launch { model.delete(it) } },
                 onRequestDelete = { model.requestDelete(it) },
-                onConfirmDelete = { scope.launch { model.delete(it) } },
+                // Dismisses immediately, before launching delete() -- unlike zouk's own
+                // Task { await model.delete(scan); model.pendingDelete = nil }, which clears
+                // pendingDelete only *after* awaiting. That ordering works fine in zouk because
+                // SwiftUI's confirmationDialog auto-dismisses the instant any button is tapped,
+                // as standard system behavior, independent of what the button's action closure
+                // does. Compose's AlertDialog has no such auto-dismiss -- it stays visible for
+                // exactly as long as pendingDelete stays non-null -- so clearing it only after
+                // the network round-trip left the dialog visibly stuck open the whole time on a
+                // real run (the file was actually being deleted the whole time; nothing in the
+                // UI showed it). cancelDelete() reused here since the underlying action (close
+                // the dialog now) is identical to the Cancel button's own.
+                onConfirmDelete = {
+                    model.cancelDelete()
+                    scope.launch { model.delete(it) }
+                },
                 onCancelDelete = { model.cancelDelete() },
             )
 

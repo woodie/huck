@@ -116,6 +116,24 @@ more robust against a crash/interrupt mid-download leaving a corrupt cached
 file behind. Not ported yet; worth doing before this client is trusted with
 larger files.
 
+### `connectTimeout`/`REQUEST_TIMEOUT`, where `HttpClient.newHttpClient()` has none
+`java.net.http.HttpClient`'s own defaults have no timeout at all, on either
+the connect or the per-request side. Confirmed as a real gap after a real
+run: a `delete()` whose DELETE request never completed left
+`AppModel.isBusy` stuck `true` forever (nothing ever reached the
+`catch`/`finally` to reset it), which disabled the refresh button and
+generally "locked" the app until it was force-restarted (Woodie's exact
+report: "the app seems to go to a locked-or-bust start where clicking the
+refresh button won't work"). Without a timeout, a hung connection or an
+unresponsive server suspends the calling coroutine indefinitely instead of
+throwing -- there's no other path back to a usable UI state. Fixed with a
+10s `connectTimeout` on the `HttpClient` plus a 30s `REQUEST_TIMEOUT`
+applied via `.timeout(...)` on every `HttpRequest` builder
+(`fetchScans`/`cachedFile`/`delete`) -- one constant for all three request
+kinds (generous enough for a real file download over a slow local network,
+not just a `files.json`/DELETE round-trip) rather than tuning each
+separately.
+
 ## src/main/kotlin/com/netpress/huck/ScanEntry.kt
 
 ### `formattedDate` has no "Today"/"Yesterday" wording
@@ -127,9 +145,11 @@ direct equivalent, so `formattedDate` always shows a full date. `timeAgo`
 ## src/main/kotlin/com/netpress/huck/AppModel.kt
 
 ### Narrower than the Swift original
-`selectedScanID`/`savingMessage`/`savedMessage`/`pendingDelete` and the
-thumbnail/save/delete flows they support aren't ported yet -- see
+Real PDF thumbnail caching isn't ported yet (needs PDFBox) -- see
 `docs/COWORK.md`'s "Current status" for what's real versus deferred.
+Selection, delete, and the full save/open/download/context-menu flow
+(`open`/`downloadWithoutOpening`/`fastDownload`/`saveViaPanel`/`save`) are
+all real now.
 
 ### `java.util.prefs.Preferences`, not `UserDefaults`
 The direct JVM equivalent for persisting the last-connected host
@@ -140,6 +160,97 @@ carry over if the two ever needed to share state, though they don't today).
 Mirrors Swift's `@Published` directly: read/write fine in plain Kotest specs
 with no Compose test rule needed, since only recomposition tracking (not
 plain reads) requires an active composition.
+
+### `ScanFetching` widened to the full protocol
+`ScanClient` already had `cachedFile`/`save`/`delete` alongside `fetchScans`,
+matching zouk's real `ScanFetching` protocol -- they just weren't declared
+against the interface `AppModel` holds its client as, so `delete()` had no
+way to reach them through the stored reference. Widened the interface,
+added `override` to `ScanClient`'s three methods, and extended
+`AppModelSpec.kt`'s `FakeScanFetching` with throwing stubs for
+`cachedFile`/`save` (not exercised by any spec yet) and a real `onDelete`
+callback (exercised by the new `delete()` specs). `onDelete` is declared
+*before* `result` in the constructor, with a default, specifically so
+existing trailing-lambda call sites (`FakeScanFetching { fixtureScans }`)
+keep binding to `result` -- Kotlin trailing lambdas always bind to the last
+parameter.
+
+### `client` is now a stored property, not a `connect()`-local `val`
+`delete()` needs the same connected client `connect()` already created --
+previously it was a local variable inside `connect()` and discarded
+afterward. Now stored as `private var client: ScanFetching?`, matching
+zouk's own `private var client: (any ScanFetching)?`, cleared in
+`changeServer()` the same way.
+
+### `selectedScanID` is a plain public var, not a `toggle`-only private one
+Matches zouk's `@Published public var selectedScanID: String?` exactly --
+`ContentView`'s `onDeselectAll` sets it directly (`model.selectedScanID =
+null`), the same way zouk's `.onTapGesture` does, rather than routing
+through a dedicated deselect function that doesn't exist in the Swift
+original either.
+
+### `delete()` doesn't touch `pendingDelete`, matching zouk exactly
+zouk's real `AppModel.delete(_:)` never references `pendingDelete` -- that's
+deliberately left to the UI layer's button handler. See
+`ui/ContentView.kt`'s own note below for why the *timing* of clearing it
+still has to differ from zouk's, even though the model-layer split is
+identical.
+
+### `requestDelete()`'s footer-only confirmation vs. the context menu's direct `delete()`
+The footer trash button still goes through `requestDelete`/`pendingDelete`/
+the `AlertDialog`. `ScanThumbnailCell`'s right-click "Move to Trash" calls
+`delete(_:)` directly instead, skipping the dialog entirely -- matching
+zouk's own `.contextMenu` item and its explicit comment on that exact
+choice ("Skips confirmation deliberately; see AppModel.requestDelete(_:)").
+Two distinct paths to the same `delete()`, not a shared one, on purpose.
+
+### `java.awt.FileDialog`, not `JFileChooser`, for `saveViaPanel`
+The closest JVM equivalent to `NSSavePanel` is `java.awt.FileDialog` -- a
+real native dialog (backed by the OS's actual save panel), not a
+Swing-drawn `JFileChooser`. Run with a null owner `Frame` rather than
+threading the real `ComposeWindow` through from `Main.kt`/`ContentView` --
+functional (still a real native modal dialog) but not window-attached the
+way zouk's `panel.runModal()` is; worth revisiting if that gap is ever
+noticeable in practice. There's also no equivalent of zouk's
+`ExtensionEnforcingPanelDelegate` (which rewrites a typed filename to
+always keep the original extension) -- `FileDialog` has no delegate hook
+for that, only a `FilenameFilter` for which files are *shown*, not
+rewriting what the user types. A real, documented gap, not an oversight.
+
+### `Desktop.getDesktop().open(file)`, the JVM equivalent of `NSWorkspace.shared.open(_:)`
+Asks the OS to open the file with its default registered application, same
+as zouk's `open(_:)` path. Unlike zouk's `Bool`-returning `open(_:)`, though,
+`Desktop.open` throws on failure -- caught by the same `catch` block as a
+save failure, so a save that succeeds but fails to *open* is misreported as
+a lost-connection save failure. Narrow enough (a save succeeding but the OS
+refusing to open the resulting file) not to hold up this pass on its own.
+
+### `fastDownload`'s auto-naming via `ScanClient.uniqueDestination`
+No save panel for this path (that's the point of "fast") -- destination is
+computed the same Finder-style de-dup way a save panel's own
+overwrite-avoidance would (`scan.pdf` -> `scan (1).pdf` rather than
+overwriting), matching zouk exactly.
+
+## src/main/kotlin/com/netpress/huck/ui/ContentView.kt
+
+### `onConfirmDelete` clears `pendingDelete` before launching `delete()`
+zouk's real button handler is `Task { await model.delete(scan);
+model.pendingDelete = nil }` -- it clears `pendingDelete` only *after*
+awaiting the delete. That works fine there because SwiftUI's
+`.confirmationDialog` auto-dismisses the instant any button is tapped, as
+standard system behavior, independent of what the button's action closure
+does or how long it takes. Compose's `AlertDialog` has no equivalent
+auto-dismiss -- it stays visible for exactly as long as `pendingDelete`
+stays non-null, full stop. Clearing it only after the round-trip (matching
+zouk's literal ordering) left the dialog visibly stuck open for the whole
+DELETE request on a real run -- the file really was being deleted the
+entire time, just with nothing in the UI suggesting anything was
+happening, so the only way it "closed" was manually clicking Cancel
+(force-dismissing it independent of whatever the real delete was doing).
+`onConfirmDelete` now calls `model.cancelDelete()` immediately, then
+launches `model.delete(it)` separately -- same model-layer split as zouk
+(the view decides when to dismiss, not the model), just reordered for
+Compose's different dialog-dismiss semantics.
 
 ## src/main/kotlin/com/netpress/huck/ui/RunningDogView.kt
 
@@ -390,40 +501,39 @@ text matches zouk's exactly (`"Delete this scan from <timeAgo>?"`, using
 future right-click "Move to Trash" would skip this confirmation while still
 wanting a title).
 
+### `detectTapGestures(onTap, onDoubleTap)` replaces plain `clickable()`
+`clickable()` only recognizes single taps -- wired to `onToggle`, a real
+double-click just fired it twice in a row (select, then immediately
+deselect), confirmed on a real run and reported directly ("Double-click
+just selects then unselects, back and forth forever"). `detectTapGestures`
+gives double-tap explicit precedence itself: a second tap within the
+system's double-tap timeout consumes both taps and fires only
+`onDoubleTap`, matching zouk's own `.exclusively(before:)` between its two
+`TapGesture` recognizers -- no manual timing/state needed to reproduce that
+here.
+
+### `ContextMenuArea`/`ContextMenuItem`, Compose Desktop's real right-click menu API
+Wraps each `ScanThumbnailCell`, matching zouk's real four-item
+`.contextMenu` exactly: "Download and Open" (`onOpen`), "Download to…"
+(`onDownloadWithoutOpening`), "Fast Download" (`onFastDownload`), then
+"Move to Trash" (`onDeleteImmediately`, skipping the confirmation dialog --
+see the `AppModel.kt` note above). Double-click (`onDoubleTap`) fires the
+same `onOpen` as the menu's first item, matching zouk's own
+`onTapGesture(count: 2) { Task { await model.open(scan) } }`.
+
+### The `savingMessage` capsule is a sibling overlay, not inline in the footer
+Matches zouk's own `.overlay { ... }` modifier, which applies to the whole
+`VStack`, not just one piece of it -- implemented as a `Surface` aligned
+`Center` inside the outer `Box` that already wraps the whole `Column`
+(toolbar/content/footer), shown only while `savingMessage != null` (a save
+in flight, or `delete()`'s own "Couldn't delete ..." failure flash).
+`thinMaterial` has no direct Compose equivalent (no built-in background
+blur), so this uses a plain semi-transparent `Surface` instead -- reads as
+a toast/HUD rather than a true frosted-glass panel, a real but minor visual
+gap.
+
 ### Narrower than the Swift original
 Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
-macOS-only), double-click download+open, the right-click context menu, the
-save panel (needs a JVM file-chooser integration), and the `savedMessage`
-toast aren't ported yet. Selection, `requestDelete`/`pendingDelete`/
-`delete()`, and the footer bar are real now -- see `docs/COWORK.md`'s
-"Not done yet".
-
-## src/main/kotlin/com/netpress/huck/AppModel.kt
-
-### `ScanFetching` widened to the full protocol
-`ScanClient` already had `cachedFile`/`save`/`delete` alongside `fetchScans`,
-matching zouk's real `ScanFetching` protocol -- they just weren't declared
-against the interface `AppModel` holds its client as, so `delete()` had no
-way to reach them through the stored reference. Widened the interface,
-added `override` to `ScanClient`'s three methods, and extended
-`AppModelSpec.kt`'s `FakeScanFetching` with throwing stubs for
-`cachedFile`/`save` (not exercised by any spec yet) and a real `onDelete`
-callback (exercised by the new `delete()` specs). `onDelete` is declared
-*before* `result` in the constructor, with a default, specifically so
-existing trailing-lambda call sites (`FakeScanFetching { fixtureScans }`)
-keep binding to `result` -- Kotlin trailing lambdas always bind to the last
-parameter.
-
-### `client` is now a stored property, not a `connect()`-local `val`
-`delete()` needs the same connected client `connect()` already created --
-previously it was a local variable inside `connect()` and discarded
-afterward. Now stored as `private var client: ScanFetching?`, matching
-zouk's own `private var client: (any ScanFetching)?`, cleared in
-`changeServer()` the same way.
-
-### `selectedScanID` is a plain public var, not a `toggle`-only private one
-Matches zouk's `@Published public var selectedScanID: String?` exactly --
-`ContentView`'s `onDeselectAll` sets it directly (`model.selectedScanID =
-null`), the same way zouk's `.onTapGesture` does, rather than routing
-through a dedicated deselect function that doesn't exist in the Swift
-original either.
+macOS-only) aren't ported yet. Selection, delete, and the full
+save/open/download/context-menu flow are all real now -- see
+`docs/COWORK.md`'s "Not done yet".

@@ -8,6 +8,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 class ScanClientError(
     message: String,
@@ -19,13 +20,29 @@ class ScanClientError(
 // write here, vs. Swift's download-to-temp-then-move).
 class ScanClient(
     private val baseUrl: URI,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    // connectTimeout() here plus REQUEST_TIMEOUT on every request below -- HttpClient.
+    // newHttpClient()'s own defaults have NO timeout at all on either front. Confirmed as a real
+    // gap on a real run: a delete() whose DELETE request never completed left AppModel.isBusy
+    // stuck true forever (nothing ever reached the catch/finally to reset it), which disabled
+    // the refresh button and generally "locked" the app until it was force-restarted. Without a
+    // timeout, a hung connection or an unresponsive server suspends the calling coroutine
+    // indefinitely instead of throwing -- there's no other path back to a usable UI state.
+    private val httpClient: HttpClient =
+        HttpClient
+            .newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build(),
 ) : ScanFetching {
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun fetchScans(): List<ScanEntry> =
         withContext(Dispatchers.IO) {
-            val request = HttpRequest.newBuilder(baseUrl.resolve("files.json")).GET().build()
+            val request =
+                HttpRequest
+                    .newBuilder(baseUrl.resolve("files.json"))
+                    .timeout(REQUEST_TIMEOUT)
+                    .GET()
+                    .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             checkOk(response.statusCode())
             json.decodeFromString(response.body())
@@ -41,7 +58,12 @@ class ScanClient(
             if (local.exists() && local.length() == scan.size) return@withContext local
 
             cacheDirectory.mkdirs()
-            val request = HttpRequest.newBuilder(baseUrl.resolve(scan.path)).GET().build()
+            val request =
+                HttpRequest
+                    .newBuilder(baseUrl.resolve(scan.path))
+                    .timeout(REQUEST_TIMEOUT)
+                    .GET()
+                    .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(local.toPath()))
             checkOk(response.statusCode())
             local
@@ -61,7 +83,12 @@ class ScanClient(
     // DELETE on the same path GET uses to download; lambada-web shares one route for both verbs.
     override suspend fun delete(scan: ScanEntry) {
         withContext(Dispatchers.IO) {
-            val request = HttpRequest.newBuilder(baseUrl.resolve(scan.path)).DELETE().build()
+            val request =
+                HttpRequest
+                    .newBuilder(baseUrl.resolve(scan.path))
+                    .timeout(REQUEST_TIMEOUT)
+                    .DELETE()
+                    .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.discarding())
             checkOk(response.statusCode())
         }
@@ -72,6 +99,11 @@ class ScanClient(
     }
 
     companion object {
+        // Generous enough for a real file download over a slow local network, not just a
+        // files.json/DELETE round-trip -- one constant for all four request kinds rather than
+        // tuning each separately, matching this file's existing "keep it simple" posture.
+        private val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(30)
+
         // Finder-style de-dup naming: "scan.pdf" -> "scan (1).pdf" instead of overwriting.
         fun uniqueDestination(
             filename: String,
