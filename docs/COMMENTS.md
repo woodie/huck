@@ -125,6 +125,17 @@ here rather than per-screen -- `Window`'s title doesn't change as
 `ContentView` branches between `HostEntryView`/`ConnectingView`/
 `ScanGridView`, and zouk's doesn't either.
 
+### `Window`'s `icon` parameter, to replace the generic Java coffee-cup icon
+Confirmed on a real packaged-`.msi` run: the title bar and Windows taskbar
+both showed the default Java icon, since `Window` (AWT/Swing underneath)
+falls back to that unless a real icon is set explicitly -- setting
+`icons/icon.ico` via `nativeDistributions.windows.iconFile` (see
+`build.gradle.kts`) only covers the installed `.exe`/Start Menu
+entry/uninstaller, a separate jpackage-level setting, not the live running
+window. `icon = painterResource(Res.drawable.small)` is the same source
+`AppIconImage.kt` already uses in-app, so window, taskbar, and installer
+icons all actually match now.
+
 ### Window height: 280 -> 315 -> 310
 Both the initial size (`rememberWindowState`) and the enforced floor
 (`window.minimumSize`) were originally 360x280, matching an early explicit

@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.netpress"
-version = "0.2.1"
+version = "0.2.2"
 
 kotlin {
     jvmToolchain(17)
@@ -91,7 +91,7 @@ compose.desktop {
             // OS as well.
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Huck"
-            packageVersion = "0.2.1"
+            packageVersion = "0.2.2"
 
             // jpackage builds the bundled app a real, jlink-trimmed JDK image, not
             // a full JRE -- by default that image only includes whatever modules
