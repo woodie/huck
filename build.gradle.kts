@@ -92,6 +92,16 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Huck"
             packageVersion = "0.2.0"
+
+            // Without this, jpackage falls back to a generic default icon (a
+            // plain coffee-cup/Duke-style placeholder) for the installed .exe,
+            // Start Menu entry, and uninstaller listing on Windows. icons/icon.ico
+            // is a multi-resolution icon (16 through 256px) generated from the
+            // same small.png used for AppIconImage's in-app icon, so the
+            // packaged app and the in-app icon actually match.
+            windows {
+                iconFile.set(project.file("icons/icon.ico"))
+            }
         }
     }
 }

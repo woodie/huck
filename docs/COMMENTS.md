@@ -63,6 +63,18 @@ directory on the `main` source set, so ktlint linted it too -- naming
 violations in JetBrains' own generated code that aren't ours to fix. Excluded
 via `ktlint { filter { exclude { it.file.path.contains("/generated/") } } }`.
 
+### `nativeDistributions { windows { iconFile.set(...) } }`
+Without an explicit icon, `jpackage` falls back to a generic default (a
+plain coffee-cup/Duke-style placeholder) for the installed `.exe`, Start
+Menu entry, and uninstaller listing on Windows -- not a build failure, just
+an unbranded result. `icons/icon.ico` is a multi-resolution icon (16
+through 256px, generated via `convert ... -define icon:auto-resize=...`)
+built from the same `small.png` already used by `AppIconImage.kt` for the
+in-app icon (`HostEntryView`'s 64dp usage) -- rather than a separately
+drawn asset, so the packaged app and the in-app icon actually match. No
+macOS-side `iconFile` yet (the `Dmg` target has the same generic-icon gap),
+since that wasn't asked for this pass.
+
 ### `.editorconfig`'s `ktlint_function_naming_ignore_when_annotated_with`
 Compose's convention for `@Composable` UI functions is PascalCase
 (`HostEntryView`, `ConnectingView`, `RunningDogView`, ...) -- they read as
