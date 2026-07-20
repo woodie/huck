@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,13 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.Divider
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -32,8 +34,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -79,14 +83,12 @@ fun ScanGridView(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Material's IconButton forces a 48dp minimum touch target (IconButtonDefaults'
-            // defaultMinSize) regardless of the icon inside it -- the same oversized-default
-            // problem HostEntryView's Connect button had, confirmed the same way here on a
-            // real run ("adding icons makes the header and footer explode"). An explicit
-            // Modifier.size() at the call site overrides it, same fix as the Connect button.
-            IconButton(onClick = onRefresh, enabled = !isBusy, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-            }
+            CircularIconButton(
+                onClick = onRefresh,
+                enabled = !isBusy,
+                icon = Icons.Filled.Refresh,
+                contentDescription = "Refresh",
+            )
 
             HostTextField(
                 value = hostInput,
@@ -186,12 +188,11 @@ private fun ScanGridFooter(
                 ) {
                     selectedScan.formattedDate?.let { Text(it, style = MaterialTheme.typography.caption) }
                     Text(selectedScan.humanSize, style = MaterialTheme.typography.caption)
-                    // Same 48dp-default override as the toolbar's refresh IconButton above --
-                    // 28dp keeps a little breathing room around the Icon's own 24dp default
-                    // size rather than clipping it against an exact-fit container.
-                    IconButton(onClick = { onDelete(selectedScan) }, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete this scan")
-                    }
+                    CircularIconButton(
+                        onClick = { onDelete(selectedScan) },
+                        icon = Icons.Filled.Delete,
+                        contentDescription = "Delete this scan",
+                    )
                 }
 
             else ->
@@ -200,6 +201,58 @@ private fun ScanGridFooter(
                     style = MaterialTheme.typography.caption,
                 )
         }
+    }
+}
+
+// Ports zouk's CircularIconButtonStyle exactly, rather than fighting Material's IconButton.
+// IconButton forces a 48dp minimum touch target (IconButtonDefaults' defaultMinSize) regardless
+// of the icon inside it -- confirmed too big on a real run ("adding icons makes the header and
+// footer explode"), the same oversized-default problem the Connect button had. An explicit
+// Modifier.size() override fixed the footprint but not a second issue it exposed: Material's
+// default ripple/hover indication has its own fixed unbounded radius independent of the
+// container's actual size, so it kept overflowing past the smaller button on hover (confirmed
+// via a real screenshot -- a gray circle visibly bigger than the icon's own bounds). Simplest
+// fix was to stop using IconButton here entirely and port zouk's real button style instead: a
+// plain clickable Box, no system ripple, with a circular tint that only appears on press/hover
+// (9% opacity hovered, 22% pressed, matching CircularIconButtonStyle's own numbers exactly) --
+// sized to the icon, not a fixed touch target.
+@Composable
+private fun CircularIconButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val tintAlpha =
+        when {
+            isPressed -> 0.22f
+            isHovered -> 0.09f
+            else -> 0f
+        }
+
+    Box(
+        modifier =
+            modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colors.onSurface.copy(alpha = tintAlpha))
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    enabled = enabled,
+                    onClick = onClick,
+                ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colors.onSurface.copy(alpha = if (enabled) 1f else 0.38f),
+        )
     }
 }
 

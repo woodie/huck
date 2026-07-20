@@ -270,19 +270,22 @@ swapping in `Icons.Filled.Refresh` and wiring the host field's
 host and pressing Enter reconnects without leaving this screen, so there's
 no separate "change server" action anymore.
 
-### Toolbar/footer `IconButton`s forced to an explicit `size(28.dp)`
-Same root cause as `HostEntryView`'s Connect button earlier this session:
-Material's `IconButton` forces a 48dp minimum touch target
-(`IconButtonDefaults`' internal `defaultMinSize`) regardless of the icon
-inside it, unrelated to the `Icon`'s own visual size. Confirmed on a real
-run ("adding icons makes the header and footer explode") -- both the
-toolbar's refresh button and the footer's delete button were forcing their
-whole row noticeably taller than the surrounding text. Fixed with an
-explicit `Modifier.size(28.dp)` at each call site (a tighter external
-constraint overrides the internal minimum, same reasoning as the Connect
-button fix) -- 28dp rather than something tighter to leave a little
-breathing room around `Icon`'s own 24dp default size instead of clipping it
-against an exact-fit container.
+### `CircularIconButton` replaces Material's `IconButton` entirely
+Two real problems surfaced here in sequence. First: Material's `IconButton`
+forces a 48dp minimum touch target (`IconButtonDefaults`' internal
+`defaultMinSize`) regardless of the icon inside it -- confirmed on a real
+run ("adding icons makes the header and footer explode"), the same
+oversized-default problem the Connect button had. An explicit
+`Modifier.size(28.dp)` fixed that footprint. Second, exposed only after
+that fix: Material's default ripple/hover indication has its own fixed
+unbounded radius independent of the container's actual size, so on hover it
+kept drawing a gray circle visibly bigger than the shrunk 28dp button --
+confirmed via another real screenshot. Rather than keep patching around
+`IconButton`'s defaults, ported zouk's actual `CircularIconButtonStyle`
+instead: a plain `clickable` `Box` with `indication = null` and a manual
+circular tint (9% opacity hovered, 22% pressed -- zouk's own numbers
+exactly), sized to the icon rather than a fixed touch target. Used for both
+the toolbar's refresh button and the footer's delete button.
 
 ### The footer never actually rendered, even before selection existed
 The content `Box` used `Modifier.fillMaxSize()` inside the outer `Column`,
