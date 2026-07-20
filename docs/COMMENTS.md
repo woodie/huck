@@ -29,23 +29,32 @@ than hand-editing indentation to guess what the formatter wanted.
 ### The `TestListener` reporter "not matching caltrain's format"
 Woodie flagged that a real, green `make test` paste (`AppModelSpec`/
 `ScanEntrySpec`, full nested checkmark tree) didn't look like
-`next-caltrain-kotlin`'s output. Traced this all the way through: the actual
-printing algorithm here (`ancestry()`, the shared-prefix dedupe in
-`afterTest`, the `if (depth == 0) println()` blank-line rule) was already
-byte-for-byte identical to caltrain's -- confirmed by re-reading caltrain's
-real `app/build.gradle.kts` and diffing line by line. What *had* drifted was
-purely cosmetic but real: caltrain's copy names its ANSI constants
-`RESET`/`GREEN`/`RED`/`CYAN`/`GRAY` (SCREAMING_SNAKE_CASE, disabled from
-ktlint's `standard:property-naming` rule via its own `.editorconfig`); this
-repo's `.editorconfig` had no such disable, so every `ktlintFormat` run (and
-`make build`/`test`/`check` all run it first) silently lowercased them back
-to `reset`/`green`/`red`/`cyan`/`gray` and stripped the fuller rationale
-comments ktlint doesn't preserve. Fixed by adding
-`ktlint_standard_property-naming = disabled` to `.editorconfig` and restoring
-the SCREAMING_SNAKE_CASE names + caltrain's full comments here -- same fix
-applied to `humane-kotlin`'s copy (which had no `.editorconfig` at all).
-Net effect: the printed test output was never actually wrong, but the source
-file no longer silently drifts from caltrain's on every build.
+`next-caltrain-kotlin`'s output -- it printed literal `[32m✔[0m [90m...[0m`
+text instead of actually coloring anything. Two things turned up here, only
+the second of which was the real bug:
+
+1. The naming/comments had drifted from caltrain's copy (SCREAMING_SNAKE_CASE
+   `RESET`/`GREEN`/`RED`/`CYAN`/`GRAY` vs. lowercase) because this repo's
+   `.editorconfig` never disabled ktlint's `standard:property-naming` rule,
+   so every `ktlintFormat` run (every `make build`/`test`/`check`) silently
+   lowercased them and stripped the fuller rationale comments. Real, worth
+   fixing (see the `.editorconfig` entry below), but cosmetic -- it had zero
+   effect on what actually gets printed at runtime.
+2. **The actual bug**: the `RESET`/`GREEN`/`RED`/`CYAN`/`GRAY` string
+   literals were missing their leading ANSI escape byte (`0x1B`/`ESC`)
+   entirely -- `"[0m"` instead of `"<ESC>[0m"`. `cat -A` on this file showed
+   plain `[0m`; the same command against caltrain's and humane-kotlin's real
+   copies showed `^[[0m` (`cat -A`'s notation for a literal `ESC` byte).
+   Confirmed with a live side-by-side screenshot: humane-kotlin's terminal
+   rendered real green checkmarks, huck's printed the bracket codes as
+   visible text, at the same time, in the same terminal app -- ruling out
+   any copy/paste explanation. Root cause: that escape byte can't be typed
+   through an ordinary text-editing tool call (it's non-printable), so
+   whoever/whatever last wrote this file's string literals as plain text
+   silently dropped it. Fixed with `printf`/`sed` from a shell (the only way
+   to actually inject the real byte) rather than a text edit. `humane-kotlin`
+   and `next-caltrain-kotlin` were unaffected -- confirmed via `cat -A`
+   before touching anything.
 
 ### `ktlint { filter { ... } }` excluding `generated/`
 The Compose plugin registers its generated `Res.kt`/`Drawable0.main.kt`

@@ -122,11 +122,11 @@ tasks.withType<Test> {
     // Respect the NO_COLOR convention (https://no-color.org/) for anyone piping
     // this into a log file or a terminal that mangles escape codes.
     val colorEnabled = System.getenv("NO_COLOR") == null
-    val RESET = "[0m"
-    val GREEN = "[32m"
-    val RED = "[31m"
-    val CYAN = "[36m"
-    val GRAY = "[90m"
+    val RESET = "[0m"
+    val GREEN = "[32m"
+    val RED = "[31m"
+    val CYAN = "[36m"
+    val GRAY = "[90m"
 
     fun ansi(
         code: String,
