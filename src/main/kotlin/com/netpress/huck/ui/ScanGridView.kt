@@ -94,8 +94,13 @@ fun ScanGridView(
         Divider()
 
         Box(
+            // weight(1f), not fillMaxSize() -- this Column also has a Divider + footer Row
+            // below it. fillMaxSize() alone claims the *entire* window height regardless of
+            // what follows in the Column, leaving the footer measured at zero height (present
+            // but invisible) rather than sharing space with it. Confirmed on a real run: the
+            // footer never actually rendered, even before selection/delete were ported.
             modifier =
-                Modifier.fillMaxSize().padding(12.dp).clickable(
+                Modifier.weight(1f).fillMaxWidth().padding(12.dp).clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDeselectAll,

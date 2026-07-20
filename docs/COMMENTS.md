@@ -270,6 +270,19 @@ swapping in `Icons.Filled.Refresh` and wiring the host field's
 host and pressing Enter reconnects without leaving this screen, so there's
 no separate "change server" action anymore.
 
+### The footer never actually rendered, even before selection existed
+The content `Box` used `Modifier.fillMaxSize()` inside the outer `Column`,
+which also holds a `Divider` + footer `Row` below it. `fillMaxSize()` claims
+the *entire* window height regardless of later siblings -- with no `weight`,
+the footer got measured at zero height every time, present in the tree but
+never actually visible. This had been true since before selection/delete
+were ported (the old plain-list version had the same "N scans" footer text,
+equally invisible) -- just never obvious until a real screenshot showed a
+selected scan with no footer info below it. Fixed with
+`Modifier.weight(1f).fillMaxWidth()` instead, so the content area only
+claims its share of the Column's remaining height, leaving room for the
+footer.
+
 ### `LazyVerticalGrid` + selection, ported from a real zouk screenshot
 The plain list this started with never matched zouk -- a real screenshot
 with a scan selected showed a grid of thumbnails, a blue-highlighted
