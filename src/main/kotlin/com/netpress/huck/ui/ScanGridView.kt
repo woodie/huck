@@ -81,7 +81,10 @@ fun ScanGridView(
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            // Padding tightened 8dp -> 4dp (roughly 80% of the original total band height,
+            // matching the footer's own 40dp -> 32dp below) -- confirmed too tall on a real
+            // side-by-side of both bars against zouk.
+            modifier = Modifier.fillMaxWidth().padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -179,9 +182,11 @@ private fun ScanGridFooter(
         // A fixed height, not vertical padding sized to content -- otherwise this row grows
         // whenever the selected-scan branch is showing (its CircularIconButton is 28dp tall,
         // noticeably more than the caption text alone), confirmed via a real screenshot: the
-        // footer visibly grew taller the moment a scan got selected. 40dp comfortably fits the
-        // 28dp icon either way, so the footer's height stays constant across all three states.
-        modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 14.dp),
+        // footer visibly grew taller the moment a scan got selected. 32dp (tightened from an
+        // initial 40dp, roughly 80% -- confirmed too tall on a real side-by-side against zouk)
+        // still comfortably fits the 28dp icon either way, so the footer's height stays
+        // constant across all three states.
+        modifier = Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
