@@ -165,11 +165,20 @@ composite build, not a published artifact. That means:
   (matching that repo's own `group`/`rootProject.name`) -- Gradle substitutes
   this with the included build's project automatically; no version number
   needed for a composite-build substitution.
-- CI (`windows-package.yml`) checks `humane-kotlin` out into a sibling
-  directory explicitly (`actions/checkout`'s `path: humane-kotlin`, which
-  lands as a sibling of huck's own checkout since that `path` is relative to
-  `$GITHUB_WORKSPACE`'s parent) to reproduce the same layout on a fresh
-  runner.
+- CI (`windows-package.yml`) checks both repos out as explicit subpaths of
+  `$GITHUB_WORKSPACE` (`path: huck`, `path: humane-kotlin`) so they land as
+  true siblings on a fresh runner, then runs Gradle with
+  `working-directory: huck`. An earlier version of this workflow checked
+  huck out to `$GITHUB_WORKSPACE`'s root and humane-kotlin to `path:
+  humane-kotlin`, on the assumption that `path` is relative to
+  `$GITHUB_WORKSPACE`'s *parent* -- it isn't; it's relative to
+  `$GITHUB_WORKSPACE` itself, so that actually nested humane-kotlin inside
+  huck's own checkout instead of beside it. Confirmed by a real failed run
+  (`Included build 'D:\a\huck\humane-kotlin' does not exist` -- exactly
+  `../humane-kotlin` resolved from huck's checkout one level too high).
+  Fixed by giving huck itself an explicit subpath rather than reaching for
+  `actions/checkout`'s `allow_parent_path` (a real option for this, but not
+  available on the `v4` major version this workflow pins).
 - Chosen over publishing to Maven Central/GitHub Packages for now --
   simpler for two repos under one person's control, no signing/Sonatype
   ceremony, edits to `humane-kotlin` are picked up immediately with no
