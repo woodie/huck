@@ -99,24 +99,39 @@ compose.desktop {
 tasks.withType<Test> {
     useJUnitPlatform()
 
-    // Custom RSpec/ginkgo-fd-style console reporter -- same as humane-kotlin's
-    // build.gradle.kts (copied from next-caltrain-kotlin originally; see that
-    // file's own comments for the full reasoning). No test source exists here
-    // yet, but this is wired up now so it's already in place the moment real
-    // tests land.
+    // Custom RSpec/ginkgo-fd-style console reporter, replacing gradle-test-logger-plugin.
+    // The plugin's mocha theme gave genuine nested indentation with checkmarks (the
+    // shape we want) but inserts a blank line between every describe/context group,
+    // hardcoded into its theme with no config flag to disable. This hooks Gradle's own
+    // TestListener API directly -- the same mechanism the plugin itself uses under the
+    // hood -- to walk the real nested TestDescriptor.parent chain and print a dense
+    // tree with no blank-line padding. No final summary line of our own -- Gradle's
+    // own "BUILD SUCCESSFUL"/"BUILD FAILED" already closes out the run.
+    //
+    // Copied byte-for-byte from next-caltrain-kotlin's app/build.gradle.kts (also
+    // mirrored into humane-kotlin) -- kept identical across all three repos on purpose,
+    // right down to the SCREAMING_SNAKE_CASE constant names (see .editorconfig's
+    // ktlint_standard_property-naming disable, which is what stops ktlintFormat from
+    // silently lowercasing them back to reset/green/red/cyan/gray on every run).
+    //
+    // Gradle's tree has two synthetic wrapper suites above the real top-level describe()
+    // ("Gradle Test Run :test" and "Gradle Test Executor N"); ancestry() filters those
+    // out by name prefix, which is the standard trick for custom Gradle test listeners.
     var lastPath: List<String> = emptyList()
 
+    // Respect the NO_COLOR convention (https://no-color.org/) for anyone piping
+    // this into a log file or a terminal that mangles escape codes.
     val colorEnabled = System.getenv("NO_COLOR") == null
-    val reset = "[0m"
-    val green = "[32m"
-    val red = "[31m"
-    val cyan = "[36m"
-    val gray = "[90m"
+    val RESET = "[0m"
+    val GREEN = "[32m"
+    val RED = "[31m"
+    val CYAN = "[36m"
+    val GRAY = "[90m"
 
     fun ansi(
         code: String,
         text: String,
-    ) = if (colorEnabled) "$code$text$reset" else text
+    ) = if (colorEnabled) "$code$text$RESET" else text
 
     fun ancestry(descriptor: TestDescriptor): List<String> {
         val names = mutableListOf<String>()
@@ -128,6 +143,11 @@ tasks.withType<Test> {
         return names
     }
 
+    // Reset dedupe state at actual task-execution time, not here at configuration
+    // time. doFirst always re-runs on every invocation regardless of Gradle's
+    // configuration cache, so this is the one safe place to reset from -- matches
+    // caltrain's own comment on this same line, even though huck doesn't currently
+    // set org.gradle.configuration-cache=true itself (no gradle.properties here yet).
     doFirst {
         lastPath = emptyList()
     }
@@ -150,27 +170,37 @@ tasks.withType<Test> {
                 val ancestors = ancestry(testDescriptor)
                 val path = ancestors + testDescriptor.name
 
+                // Print only the part of the path not already printed for the previous
+                // test -- the "dedupe shared prefix" trick that produces a real nested
+                // tree from a flat stream of leaf-test callbacks, with no blank lines.
                 val shared = path.zip(lastPath).takeWhile { (a, b) -> a == b }.count()
                 for (depth in shared until ancestors.size) {
+                    // depth == 0 here means ancestors[0] -- the fully-qualified spec class
+                    // name (e.g. com.netpress.huck.AppModelSpec) -- is about to be printed
+                    // for a new top-level suite. A blank line goes before every one of
+                    // those, unconditionally (including the first), so each suite's block
+                    // visually stands apart from whatever came before it.
                     if (depth == 0) println()
                     println("  ".repeat(depth) + ancestors[depth])
                 }
 
+                // Mocha's own spec reporter colors the checkmark green and dims the title
+                // for passes; failures and pending get a single solid color instead.
                 val line =
                     when (result.resultType) {
                         TestResult.ResultType.SUCCESS ->
-                            "${ansi(green, "✔")} ${ansi(gray, testDescriptor.name)}"
+                            "${ansi(GREEN, "✔")} ${ansi(GRAY, testDescriptor.name)}"
 
                         TestResult.ResultType.SKIPPED ->
-                            ansi(cyan, "○ ${testDescriptor.name}")
+                            ansi(CYAN, "○ ${testDescriptor.name}")
 
                         else ->
-                            ansi(red, "✖ ${testDescriptor.name}")
+                            ansi(RED, "✖ ${testDescriptor.name}")
                     }
                 println("  ".repeat(ancestors.size) + line)
                 if (result.resultType == TestResult.ResultType.FAILURE) {
                     result.exceptions.forEach { e ->
-                        println("  ".repeat(ancestors.size + 1) + ansi(red, e.message ?: e.toString()))
+                        println("  ".repeat(ancestors.size + 1) + ansi(RED, e.message ?: e.toString()))
                     }
                 }
 

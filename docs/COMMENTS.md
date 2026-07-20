@@ -26,6 +26,27 @@ and the copied-from-`next-caltrain-kotlin` `TestListener` block -- fixed by
 running `./gradlew ktlintFormat` (see the `format` Makefile target) rather
 than hand-editing indentation to guess what the formatter wanted.
 
+### The `TestListener` reporter "not matching caltrain's format"
+Woodie flagged that a real, green `make test` paste (`AppModelSpec`/
+`ScanEntrySpec`, full nested checkmark tree) didn't look like
+`next-caltrain-kotlin`'s output. Traced this all the way through: the actual
+printing algorithm here (`ancestry()`, the shared-prefix dedupe in
+`afterTest`, the `if (depth == 0) println()` blank-line rule) was already
+byte-for-byte identical to caltrain's -- confirmed by re-reading caltrain's
+real `app/build.gradle.kts` and diffing line by line. What *had* drifted was
+purely cosmetic but real: caltrain's copy names its ANSI constants
+`RESET`/`GREEN`/`RED`/`CYAN`/`GRAY` (SCREAMING_SNAKE_CASE, disabled from
+ktlint's `standard:property-naming` rule via its own `.editorconfig`); this
+repo's `.editorconfig` had no such disable, so every `ktlintFormat` run (and
+`make build`/`test`/`check` all run it first) silently lowercased them back
+to `reset`/`green`/`red`/`cyan`/`gray` and stripped the fuller rationale
+comments ktlint doesn't preserve. Fixed by adding
+`ktlint_standard_property-naming = disabled` to `.editorconfig` and restoring
+the SCREAMING_SNAKE_CASE names + caltrain's full comments here -- same fix
+applied to `humane-kotlin`'s copy (which had no `.editorconfig` at all).
+Net effect: the printed test output was never actually wrong, but the source
+file no longer silently drifts from caltrain's on every build.
+
 ### `ktlint { filter { ... } }` excluding `generated/`
 The Compose plugin registers its generated `Res.kt`/`Drawable0.main.kt`
 (under `build/generated/compose/resourceGenerator`) as a real Kotlin source
