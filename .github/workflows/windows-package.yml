@@ -16,6 +16,16 @@ on:
 jobs:
   package-msi:
     runs-on: windows-latest
+    # Needed for the release step below. GITHUB_TOKEN's default permissions
+    # are read-only on repos where "Workflow permissions" is left at its
+    # (now-default) restricted setting -- confirmed by a real failed run:
+    # softprops/action-gh-release got a 403 "Resource not accessible by
+    # integration" trying to create the v0.2.0 release, even on a same-repo
+    # tag push. Without this block, only a repo-level Settings > Actions >
+    # General > Workflow permissions change (a manual, per-repo setting, not
+    # something this file can express) would grant it instead.
+    permissions:
+      contents: write
     steps:
       # Checked out to an explicit `huck` subpath, not $GITHUB_WORKSPACE's root
       # -- see the sibling-checkout comment below for why.
@@ -69,8 +79,8 @@ jobs:
       # attaches the same .msi to a real GitHub Release instead of leaving it
       # buried in a workflow run's artifact list. softprops/action-gh-release
       # both creates the release (from the tag) and uploads the file in one
-      # step; GITHUB_TOKEN already has the permissions this needs on a
-      # same-repo tag push, no extra secret required.
+      # step; the job-level permissions: contents: write above is what lets
+      # GITHUB_TOKEN actually do that, no extra secret required.
       - name: Attach the .msi to a GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
