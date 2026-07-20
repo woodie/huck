@@ -32,7 +32,7 @@ class ScanClient(
         }
 
     // Re-downloads on a scan.size mismatch instead of trusting a stale same-named cache entry.
-    suspend fun cachedFile(
+    override suspend fun cachedFile(
         scan: ScanEntry,
         cacheDirectory: File,
     ): File =
@@ -47,7 +47,7 @@ class ScanClient(
             local
         }
 
-    suspend fun save(
+    override suspend fun save(
         scan: ScanEntry,
         destination: File,
         cacheDirectory: File,
@@ -59,7 +59,7 @@ class ScanClient(
         }
 
     // DELETE on the same path GET uses to download; lambada-web shares one route for both verbs.
-    suspend fun delete(scan: ScanEntry) {
+    override suspend fun delete(scan: ScanEntry) {
         withContext(Dispatchers.IO) {
             val request = HttpRequest.newBuilder(baseUrl.resolve(scan.path)).DELETE().build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.discarding())

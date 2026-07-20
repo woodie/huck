@@ -81,9 +81,24 @@ What's real:
 - `ScanGridView`'s toolbar matches zouk's real one: a refresh `IconButton`,
   not a text button, and a host field that reconnects on Enter instead of a
   separate "change server" button.
-- Kotest specs for `ScanEntry` and `AppModel` (the connection half only --
-  see "Not done yet" below), using `kotlinx-coroutines-test`'s `runTest` so
-  the 2-second connecting floor doesn't actually slow the suite down.
+- `ScanGridView` is a real `LazyVerticalGrid` now, not a plain list: clicking
+  a scan toggles selection (`AppModel.toggle`, matching zouk's real
+  `toggle(_:)`), clicking empty space deselects, and the footer bar shows
+  the selected scan's `formattedDate`/`humanSize` plus a delete button that
+  opens a real confirmation dialog (`AppModel.requestDelete`/`pendingDelete`/
+  `delete`, all matching zouk's naming). `ScanFetching` was widened to the
+  full protocol (`cachedFile`/`save`/`delete`, not just `fetchScans`) since
+  `ScanClient` already had all four methods -- they just weren't declared
+  against the interface `AppModel` actually holds onto yet.
+  `DogEaredDocumentIcon` (zouk's real placeholder shape for an uncached
+  thumbnail) is ported directly via Compose's `GenericShape` -- it's just
+  vector paths, no PDF rendering involved, so every scan renders with this
+  placeholder for now (see "Not done yet" below for real thumbnails).
+- Kotest specs for `ScanEntry` and `AppModel` (connection, selection,
+  `requestDelete`/`delete` -- save/download/thumbnail flows aren't ported
+  yet, see below), using `kotlinx-coroutines-test`'s `runTest` so the
+  2-second connecting floor and `delete()`'s 2-second failure flash don't
+  actually slow the suite down.
 - `.github/workflows/windows-package.yml` has still never actually run --
   the `packageMsi` output path it uploads is Compose Desktop's documented
   default, not yet confirmed against a real CI run.
@@ -100,22 +115,27 @@ What's real:
   minimum height regardless of content, overridden with an explicit
   smaller one). See `docs/COMMENTS.md` for the specifics and the reasoning
   behind each -- there's real history here, not just final numbers.
-  **`ScanGridView` (the toolbar/list screen) has not had this same
+  **`ScanGridView` (the grid/footer screen) has not had this same
   side-by-side treatment yet** -- only `HostEntryView`/`ConnectingView`
-  have been checked against zouk's real screenshots pixel-for-pixel.
+  have been checked against zouk's real screenshots pixel-for-pixel. It's
+  functionally real (see above) but cell sizing, spacing, and the footer's
+  exact layout are unverified against the Swift original.
 
 ### Not done yet (in rough order)
 
-1. `ScanGridView`'s PDF thumbnails (needs a JVM PDF renderer like PDFBox --
-   `PDFKit` is macOS-only), the dog-eared placeholder shape shown before a
-   thumbnail is cached, double-click download+open, the right-click context
-   menu, the "saving..." toast, and the delete-confirmation dialog.
-2. `AppModel` doesn't expose `selectedScanID`/`savingMessage`/
-   `savedMessage`/`pendingDelete` yet -- needed before any of the above.
+1. Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
+   macOS-only) -- every scan currently renders with `DogEaredDocumentIcon`,
+   zouk's own placeholder for an uncached thumbnail, since that's a real
+   `AppModel.thumbnail(for:)` cache miss state in the Swift original too.
+2. Double-click download+open, the right-click context menu (Download and
+   Open / Download to.../ Fast Download / Move to Trash), the save panel
+   (needs a JVM file-chooser integration), and the `savingMessage`/
+   `savedMessage` toasts those flows drive -- `delete()`'s own failure flash
+   is the only `savingMessage` use wired up so far.
 3. `ScanGridView` itself hasn't been visually compared against zouk's real
    screenshots the way `HostEntryView`/`ConnectingView` have -- worth a same
-   side-by-side pass (toolbar sizing, list row layout, footer) before
-   trusting it matches.
+   side-by-side pass (cell sizing/spacing, footer layout, selection tint)
+   before trusting it matches pixel-for-pixel.
 4. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
    a real `windows-latest` run -- still unconfirmed.
 

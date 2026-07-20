@@ -270,10 +270,77 @@ swapping in `Icons.Filled.Refresh` and wiring the host field's
 host and pressing Enter reconnects without leaving this screen, so there's
 no separate "change server" action anymore.
 
+### `LazyVerticalGrid` + selection, ported from a real zouk screenshot
+The plain list this started with never matched zouk -- a real screenshot
+with a scan selected showed a grid of thumbnails, a blue-highlighted
+thumbnail plus a blue filename chip for the selected cell, and a footer bar
+(absolute date/time, size, trash icon) instead of inline per-row text.
+`GridCells.Adaptive(minSize = 120.dp)` approximates zouk's
+`GridItem(.adaptive(minimum: 120, maximum: 160), spacing: 20)` -- Compose's
+`Adaptive` only takes one bound, not a min *and* max, so cells can grow
+wider than zouk's 160pt ceiling on a wide window; not worth a custom
+`GridCells` implementation for this pass.
+
+### Deselect-on-background-tap
+The content `Box` wrapping the grid gets its own
+`clickable(indication = null) { onDeselectAll() }`, matching zouk's
+`.onTapGesture { model.selectedScanID = nil }` on the content container.
+Each `ScanThumbnailCell` has its own `clickable` for toggling, which
+consumes the click before it reaches the parent -- so this only fires for
+clicks that land in the grid's empty space/gutters, same as zouk.
+
+### `DogEaredDocumentIcon` ported via `GenericShape`, not deferred like PDFBox
+zouk's real placeholder for an uncached thumbnail (`AppModel.thumbnail(for:)`
+returning nil) is drawn from two SwiftUI `Shape`s (`PageShape`/`FoldShape`) --
+pure vector paths, no `PDFKit` involved. That meant it could be ported
+directly via Compose's `GenericShape` (`moveTo`/`lineTo`/`close`, the same
+shape-building primitives as SwiftUI's `Path`) without waiting on a PDFBox
+integration. Every scan renders with this placeholder for now since real
+thumbnail caching isn't ported -- see "Not done yet" in `docs/COWORK.md`.
+
+### Delete confirmation via `AlertDialog`, not a native `confirmationDialog`
+Compose has no direct equivalent to SwiftUI's `.confirmationDialog` (which
+auto-adds a system Cancel button); `androidx.compose.material.AlertDialog`
+needs both `confirmButton` and `dismissButton` supplied explicitly. Title
+text matches zouk's exactly (`"Delete this scan from <timeAgo>?"`, using
+`pendingDelete`, not `selectedScan` -- same distinction zouk draws since a
+future right-click "Move to Trash" would skip this confirmation while still
+wanting a title).
+
 ### Narrower than the Swift original
-PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
-macOS-only), the dog-eared placeholder shape shown before a thumbnail is
-cached, double-click download+open, the right-click context menu, the
-"saving..." toast, and the delete-confirmation dialog aren't ported yet --
-`AppModel` doesn't expose `selectedScanID`/`pendingDelete` yet either. See
-`docs/COWORK.md`'s "Not done yet".
+Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
+macOS-only), double-click download+open, the right-click context menu, the
+save panel (needs a JVM file-chooser integration), and the `savedMessage`
+toast aren't ported yet. Selection, `requestDelete`/`pendingDelete`/
+`delete()`, and the footer bar are real now -- see `docs/COWORK.md`'s
+"Not done yet".
+
+## src/main/kotlin/com/netpress/huck/AppModel.kt
+
+### `ScanFetching` widened to the full protocol
+`ScanClient` already had `cachedFile`/`save`/`delete` alongside `fetchScans`,
+matching zouk's real `ScanFetching` protocol -- they just weren't declared
+against the interface `AppModel` holds its client as, so `delete()` had no
+way to reach them through the stored reference. Widened the interface,
+added `override` to `ScanClient`'s three methods, and extended
+`AppModelSpec.kt`'s `FakeScanFetching` with throwing stubs for
+`cachedFile`/`save` (not exercised by any spec yet) and a real `onDelete`
+callback (exercised by the new `delete()` specs). `onDelete` is declared
+*before* `result` in the constructor, with a default, specifically so
+existing trailing-lambda call sites (`FakeScanFetching { fixtureScans }`)
+keep binding to `result` -- Kotlin trailing lambdas always bind to the last
+parameter.
+
+### `client` is now a stored property, not a `connect()`-local `val`
+`delete()` needs the same connected client `connect()` already created --
+previously it was a local variable inside `connect()` and discarded
+afterward. Now stored as `private var client: ScanFetching?`, matching
+zouk's own `private var client: (any ScanFetching)?`, cleared in
+`changeServer()` the same way.
+
+### `selectedScanID` is a plain public var, not a `toggle`-only private one
+Matches zouk's `@Published public var selectedScanID: String?` exactly --
+`ContentView`'s `onDeselectAll` sets it directly (`model.selectedScanID =
+null`), the same way zouk's `.onTapGesture` does, rather than routing
+through a dedicated deselect function that doesn't exist in the Swift
+original either.

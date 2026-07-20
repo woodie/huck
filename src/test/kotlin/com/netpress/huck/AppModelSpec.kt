@@ -3,12 +3,13 @@ package com.netpress.huck
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import java.io.File
 import java.net.URI
 import java.util.UUID
 import java.util.prefs.Preferences
 
-// Ports the connection half of zouk's AppModelTests -- selectedScanID/pendingDelete/save/delete
-// aren't covered because AppModel doesn't expose them yet, see docs/COWORK.md. Each example gets
+// Ports zouk's AppModelSpec.swift -- save/download/thumbnail flows aren't covered because
+// they aren't ported yet (see docs/COWORK.md); selection and delete() now are. Each example gets
 // its own scoped Preferences node (not the shared user default node) so tests don't read or
 // write real state on the machine running them. runTest (kotlinx-coroutines-test) gives connect()
 // virtual time, so the 2-second minimum-connecting-duration floor doesn't actually slow the
@@ -112,6 +113,116 @@ class AppModelSpec :
                 }
             }
 
+            context("with a connected model showing one scan") {
+                // Matches zouk's AppModelSpec.swift setup -- a real connect() through a fake
+                // client rather than assigning model.scans directly, since scans is private-set
+                // here (public var in zouk, but nothing outside AppModel needs to replace the
+                // whole list directly in this port).
+                suspend fun connectedModel(onDelete: suspend (ScanEntry) -> Unit = {}): Pair<AppModel, ScanEntry> {
+                    val scan =
+                        ScanEntry(
+                            name = "1782420815.pdf",
+                            size = 7,
+                            time = "2026-06-25T17:30:00Z",
+                            path = "/download/1782420815.pdf",
+                        )
+                    val model =
+                        AppModel(
+                            preferences = scopedPreferences(),
+                            clientFactory = { FakeScanFetching(onDelete = onDelete) { listOf(scan) } },
+                        )
+                    model.hostInput = "scans.example.com"
+                    model.connect()
+                    return model to scan
+                }
+
+                describe("toggle()") {
+                    context("when toggled once") {
+                        it("selects the scan") {
+                            runTest {
+                                val (model, scan) = connectedModel()
+
+                                model.toggle(scan)
+
+                                model.selectedScanID shouldBe scan.id
+                                model.selectedScan shouldBe scan
+                            }
+                        }
+
+                        it("deselects the scan when toggled again") {
+                            runTest {
+                                val (model, scan) = connectedModel()
+                                model.toggle(scan)
+
+                                model.toggle(scan)
+
+                                model.selectedScanID shouldBe null
+                                model.selectedScan shouldBe null
+                            }
+                        }
+                    }
+                }
+
+                context("changeServer() with a scan selected") {
+                    it("clears the selection along with the scan list") {
+                        runTest {
+                            val (model, scan) = connectedModel()
+                            model.toggle(scan)
+
+                            model.changeServer()
+
+                            model.selectedScanID shouldBe null
+                            model.scans shouldBe emptyList()
+                        }
+                    }
+                }
+
+                describe("requestDelete()") {
+                    // Only the footer trash button calls this; a real right-click "Move to
+                    // Trash" (zouk's context menu) isn't ported yet, so nothing skips this.
+                    it("selects the scan and arms pendingDelete for it") {
+                        runTest {
+                            val (model, scan) = connectedModel()
+
+                            model.requestDelete(scan)
+
+                            model.selectedScanID shouldBe scan.id
+                            model.pendingDelete shouldBe scan
+                        }
+                    }
+                }
+
+                describe("delete()") {
+                    context("when the server confirms the delete") {
+                        it("removes the scan from scans and clears the selection") {
+                            runTest {
+                                val (model, scan) = connectedModel()
+                                model.selectedScanID = scan.id
+
+                                model.delete(scan)
+
+                                model.scans shouldBe emptyList()
+                                model.selectedScanID shouldBe null
+                            }
+                        }
+                    }
+
+                    context("when the server rejects the delete") {
+                        it("leaves scans untouched and clears the failure flash afterward") {
+                            runTest {
+                                val (model, scan) =
+                                    connectedModel(onDelete = { throw ScanClientError("offline") })
+
+                                model.delete(scan)
+
+                                model.scans shouldBe listOf(scan)
+                                model.savingMessage shouldBe null
+                            }
+                        }
+                    }
+                }
+            }
+
             describe("baseUrlFrom") {
                 context("a blank string") {
                     it("returns null") {
@@ -134,8 +245,24 @@ class AppModelSpec :
         }
     })
 
+// onDelete comes first (with a default) so trailing-lambda call sites like
+// FakeScanFetching { fixtureScans } keep binding to result, the last parameter, unchanged.
 private class FakeScanFetching(
+    private val onDelete: suspend (ScanEntry) -> Unit = {},
     private val result: () -> List<ScanEntry>,
 ) : ScanFetching {
     override suspend fun fetchScans(): List<ScanEntry> = result()
+
+    override suspend fun cachedFile(
+        scan: ScanEntry,
+        cacheDirectory: File,
+    ): File = throw NotImplementedError("FakeScanFetching.cachedFile isn't exercised by these specs yet")
+
+    override suspend fun save(
+        scan: ScanEntry,
+        destination: File,
+        cacheDirectory: File,
+    ): File = throw NotImplementedError("FakeScanFetching.save isn't exercised by these specs yet")
+
+    override suspend fun delete(scan: ScanEntry) = onDelete(scan)
 }

@@ -23,11 +23,20 @@ fun ContentView(
             ScanGridView(
                 state = model.state,
                 scans = model.scans,
+                selectedScanID = model.selectedScanID,
+                selectedScan = model.selectedScan,
+                pendingDelete = model.pendingDelete,
+                savingMessage = model.savingMessage,
                 isBusy = model.isBusy,
                 hostInput = model.hostInput,
                 onHostInputChange = { model.hostInput = it },
                 onSubmitHost = { scope.launch { model.connect() } },
                 onRefresh = { scope.launch { model.connect() } },
+                onToggle = { model.toggle(it) },
+                onDeselectAll = { model.selectedScanID = null },
+                onRequestDelete = { model.requestDelete(it) },
+                onConfirmDelete = { scope.launch { model.delete(it) } },
+                onCancelDelete = { model.cancelDelete() },
             )
 
         else ->
