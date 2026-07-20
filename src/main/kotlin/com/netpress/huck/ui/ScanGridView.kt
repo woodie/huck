@@ -119,14 +119,27 @@ fun ScanGridView(
                 ),
         ) {
             when {
+                // Both of these get their own fillMaxSize() + Center Box -- the parent Box
+                // above is left at its default top-start alignment specifically so the grid
+                // branch below (which already fills/positions itself correctly) isn't also
+                // recentered as a side effect. Confirmed on a real run: the empty-state message
+                // was rendering top-left instead of centered like zouk's real Spacer-wrapped
+                // VStack.
                 state is ConnectionState.Failed ->
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(state.message, style = MaterialTheme.typography.body1)
-                        Button(onClick = onRefresh) { Text("Try Again") }
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(state.message, style = MaterialTheme.typography.body1)
+                            Button(onClick = onRefresh) { Text("Try Again") }
+                        }
                     }
 
                 scans.isEmpty() ->
-                    Text(if (isBusy) "Loading..." else "No scans found.")
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(if (isBusy) "Loading..." else "No scans found.")
+                    }
 
                 else ->
                     LazyVerticalGrid(
@@ -209,7 +222,11 @@ private fun ScanGridFooter(
 
             else ->
                 Text(
-                    if (scanCount == 0) "" else "$scanCount scans",
+                    when (scanCount) {
+                        0 -> ""
+                        1 -> "1 scan"
+                        else -> "$scanCount scans"
+                    },
                     style = MaterialTheme.typography.caption,
                 )
         }
@@ -314,14 +331,17 @@ private fun DogEaredDocumentIcon(modifier: Modifier = Modifier) {
     }
 }
 
+// macOS's real selection accent (System Blue), not Material's default purple/indigo primary --
+// confirmed on a real side-by-side against zouk: the selection tint was barely visible (wrong,
+// pale-purple hue) and missing zouk's actual glow entirely.
+private val SelectionBlue = Color(0xFF0A84FF)
+
 @Composable
 private fun ScanThumbnailCell(
     scan: ScanEntry,
     isSelected: Boolean,
     onToggle: () -> Unit,
 ) {
-    val selectionTint = MaterialTheme.colors.primary
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -335,11 +355,27 @@ private fun ScanThumbnailCell(
         Box(
             modifier =
                 Modifier
-                    .padding(6.dp)
-                    .background(
-                        if (isSelected) selectionTint.copy(alpha = 0.15f) else Color.Transparent,
+                    // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill *plus*
+                    // a colored shadow/glow (55% opacity, 7pt radius), which is what actually
+                    // makes it read as a soft blue halo around the thumbnail rather than a flat
+                    // background square. shadow()/background() must come BEFORE padding() here
+                    // -- modifier order matters: padding placed first (outermost) confines the
+                    // paint to the exact icon bounds, since it shrinks the space handed to the
+                    // modifiers after it, leaving no visible margin at all except through the
+                    // icon's own fold-shaped notch (confirmed on a real run -- that's exactly
+                    // where the blue was peeking through and nowhere else). Padding placed last
+                    // (innermost) instead only pushes the *child* inward, so shadow/background
+                    // paint across the full padded box, with the icon sitting inset within it.
+                    .shadow(
+                        elevation = if (isSelected) 7.dp else 0.dp,
+                        shape = RoundedCornerShape(10.dp),
+                        clip = false,
+                        ambientColor = SelectionBlue.copy(alpha = 0.55f),
+                        spotColor = SelectionBlue.copy(alpha = 0.55f),
+                    ).background(
+                        if (isSelected) SelectionBlue.copy(alpha = 0.15f) else Color.Transparent,
                         RoundedCornerShape(10.dp),
-                    ),
+                    ).padding(14.dp),
         ) {
             DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
         }
@@ -352,7 +388,7 @@ private fun ScanThumbnailCell(
             color = if (isSelected) Color.White else MaterialTheme.colors.onSurface,
             modifier =
                 Modifier
-                    .background(if (isSelected) selectionTint else Color.Transparent, RoundedCornerShape(4.dp))
+                    .background(if (isSelected) SelectionBlue else Color.Transparent, RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }

@@ -314,6 +314,45 @@ selected scan with no footer info below it. Fixed with
 claims its share of the Column's remaining height, leaving room for the
 footer.
 
+### `SelectionBlue`, not `MaterialTheme.colors.primary`
+Selection used Material's default `primary` (a purple/indigo) for both the
+thumbnail tint and the filename chip -- confirmed on a real side-by-side
+against zouk that this was barely visible (wrong, pale hue) and missing
+zouk's actual glow. zouk's selection isn't a flat tint either: it's a
+15%-opacity fill *plus* a colored shadow (`selectionTint.opacity(0.55)`,
+7pt radius) -- the shadow is what actually reads as a soft halo around the
+thumbnail. Fixed with an explicit `SelectionBlue = Color(0xFF0A84FF)`
+(macOS's real System Blue accent) and a matching `Modifier.shadow(...,
+ambientColor = ..., spotColor = ...)` on the thumbnail's wrapper `Box`.
+
+A second, real bug here: modifier *order*. `padding()` needs to come after
+`shadow()`/`background()` in the chain (i.e. be the innermost modifier), not
+before. `Modifier.padding(14.dp).shadow(...).background(...)` confines the
+paint to the exact space left over once padding is subtracted -- which,
+since the child (the icon) fills that exact remaining space, means the tint
+is completely hidden behind the icon except through its fold-shaped notch
+(confirmed on a real run: that's the *only* place the blue was peeking
+through). `Modifier.shadow(...).background(...).padding(14.dp)` instead
+paints across the *full* box first, and padding only pushes the child
+(icon) inward within it -- giving the icon real inset margin the tint/glow
+is actually visible in.
+
+### Footer's scan count pluralizes, unlike zouk's literal `"\(count) scans"`
+zouk's real footer text is `"\(model.scans.count) scans"` unconditionally --
+grammatically off at exactly one scan ("1 scans"). Deliberately diverges
+from 1:1 parity here since Woodie asked for it directly: `0 -> ""`,
+`1 -> "1 scan"`, `else -> "$scanCount scans"`.
+
+### Empty/error states centered, grid left alone
+The content `Box` has no `contentAlignment` (defaults to top-start) --
+correct for the grid branch, which already fills/positions itself, but the
+empty-state "No scans found." text and the Failed-state message were
+rendering top-left instead of centered like zouk's real
+`Spacer()`-wrapped `VStack`. Rather than set `contentAlignment = Center` on
+the parent `Box` (which would also recenter the grid as a side effect),
+each of those two branches gets its own nested
+`Box(fillMaxSize(), contentAlignment = Center)`.
+
 ### `LazyVerticalGrid` + selection, ported from a real zouk screenshot
 The plain list this started with never matched zouk -- a real screenshot
 with a scan selected showed a grid of thumbnails, a blue-highlighted
