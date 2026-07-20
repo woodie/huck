@@ -287,6 +287,15 @@ circular tint (9% opacity hovered, 22% pressed -- zouk's own numbers
 exactly), sized to the icon rather than a fixed touch target. Used for both
 the toolbar's refresh button and the footer's delete button.
 
+### Footer given a fixed `height(40.dp)` instead of content-sized padding
+Confirmed via a real screenshot: the footer visibly grew taller the moment
+a scan got selected. Root cause -- the selected-scan branch includes
+`CircularIconButton`, a fixed 28dp box, noticeably taller than the plain
+caption-text line height the "N scans" branch uses; with only vertical
+padding (no fixed height), the `Row` sized itself to whichever branch was
+showing. `height(40.dp)` keeps the footer a constant height across all
+three states (saving message / selected scan / scan count).
+
 ### The footer never actually rendered, even before selection existed
 The content `Box` used `Modifier.fillMaxSize()` inside the outer `Column`,
 which also holds a `Divider` + footer `Row` below it. `fillMaxSize()` claims

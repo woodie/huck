@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -175,7 +176,12 @@ private fun ScanGridFooter(
     onDelete: (ScanEntry) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+        // A fixed height, not vertical padding sized to content -- otherwise this row grows
+        // whenever the selected-scan branch is showing (its CircularIconButton is 28dp tall,
+        // noticeably more than the caption text alone), confirmed via a real screenshot: the
+        // footer visibly grew taller the moment a scan got selected. 40dp comfortably fits the
+        // 28dp icon either way, so the footer's height stays constant across all three states.
+        modifier = Modifier.fillMaxWidth().height(40.dp).padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
