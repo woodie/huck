@@ -79,7 +79,12 @@ fun ScanGridView(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onRefresh, enabled = !isBusy) {
+            // Material's IconButton forces a 48dp minimum touch target (IconButtonDefaults'
+            // defaultMinSize) regardless of the icon inside it -- the same oversized-default
+            // problem HostEntryView's Connect button had, confirmed the same way here on a
+            // real run ("adding icons makes the header and footer explode"). An explicit
+            // Modifier.size() at the call site overrides it, same fix as the Connect button.
+            IconButton(onClick = onRefresh, enabled = !isBusy, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
             }
 
@@ -181,7 +186,10 @@ private fun ScanGridFooter(
                 ) {
                     selectedScan.formattedDate?.let { Text(it, style = MaterialTheme.typography.caption) }
                     Text(selectedScan.humanSize, style = MaterialTheme.typography.caption)
-                    IconButton(onClick = { onDelete(selectedScan) }) {
+                    // Same 48dp-default override as the toolbar's refresh IconButton above --
+                    // 28dp keeps a little breathing room around the Icon's own 24dp default
+                    // size rather than clipping it against an exact-fit container.
+                    IconButton(onClick = { onDelete(selectedScan) }, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete this scan")
                     }
                 }

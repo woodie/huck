@@ -270,6 +270,20 @@ swapping in `Icons.Filled.Refresh` and wiring the host field's
 host and pressing Enter reconnects without leaving this screen, so there's
 no separate "change server" action anymore.
 
+### Toolbar/footer `IconButton`s forced to an explicit `size(28.dp)`
+Same root cause as `HostEntryView`'s Connect button earlier this session:
+Material's `IconButton` forces a 48dp minimum touch target
+(`IconButtonDefaults`' internal `defaultMinSize`) regardless of the icon
+inside it, unrelated to the `Icon`'s own visual size. Confirmed on a real
+run ("adding icons makes the header and footer explode") -- both the
+toolbar's refresh button and the footer's delete button were forcing their
+whole row noticeably taller than the surrounding text. Fixed with an
+explicit `Modifier.size(28.dp)` at each call site (a tighter external
+constraint overrides the internal minimum, same reasoning as the Connect
+button fix) -- 28dp rather than something tighter to leave a little
+breathing room around `Icon`'s own 24dp default size instead of clipping it
+against an exact-fit container.
+
 ### The footer never actually rendered, even before selection existed
 The content `Box` used `Modifier.fillMaxSize()` inside the outer `Column`,
 which also holds a `Divider` + footer `Row` below it. `fillMaxSize()` claims
