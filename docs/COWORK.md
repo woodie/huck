@@ -84,24 +84,40 @@ What's real:
 - `ScanGridView` is a real `LazyVerticalGrid` now, not a plain list: clicking
   a scan toggles selection (`AppModel.toggle`, matching zouk's real
   `toggle(_:)`), clicking empty space deselects, and the footer bar shows
-  the selected scan's `formattedDate`/`humanSize` plus a delete button that
-  opens a real confirmation dialog (`AppModel.requestDelete`/`pendingDelete`/
-  `delete`, all matching zouk's naming). `ScanFetching` was widened to the
-  full protocol (`cachedFile`/`save`/`delete`, not just `fetchScans`) since
-  `ScanClient` already had all four methods -- they just weren't declared
-  against the interface `AppModel` actually holds onto yet.
+  `savedMessage`, then the selected scan's `formattedDate`/`humanSize` plus
+  a delete button that opens a real confirmation dialog
+  (`AppModel.requestDelete`/`pendingDelete`/`delete`), falling back to a
+  pluralized scan count -- same priority order as zouk. `ScanFetching` was
+  widened to the full protocol (`cachedFile`/`save`/`delete`, not just
+  `fetchScans`) since `ScanClient` already had all four methods -- they just
+  weren't declared against the interface `AppModel` actually holds onto yet.
   `DogEaredDocumentIcon` (zouk's real placeholder shape for an uncached
   thumbnail) is ported directly via Compose's `GenericShape` -- it's just
   vector paths, no PDF rendering involved, so every scan renders with this
   placeholder for now (see "Not done yet" below for real thumbnails).
+- Double-click (`detectTapGestures`) triggers download-and-open
+  (`AppModel.open`), and a real right-click context menu (`ContextMenuArea`)
+  matches zouk's four items exactly: Download and Open, Download to…
+  (`downloadWithoutOpening`, via a native `java.awt.FileDialog` save panel),
+  Fast Download (`fastDownload`, auto-named, no panel), and Move to Trash
+  (`onDeleteImmediately`, which -- matching zouk -- skips the confirmation
+  dialog the footer's trash button uses). A floating "Saving …" capsule
+  (`savingMessage`) and a persistent "File … saved." footer message
+  (`savedMessage`) drive user feedback around all of this, both matching
+  zouk's own property names and priority. Confirmed working end-to-end on
+  real hardware (menu, double-click, and select/deselect all verified).
 - Kotest specs for `ScanEntry` and `AppModel` (connection, selection,
-  `requestDelete`/`delete` -- save/download/thumbnail flows aren't ported
-  yet, see below), using `kotlinx-coroutines-test`'s `runTest` so the
-  2-second connecting floor and `delete()`'s 2-second failure flash don't
-  actually slow the suite down.
-- `.github/workflows/windows-package.yml` has still never actually run --
-  the `packageMsi` output path it uploads is Compose Desktop's documented
-  default, not yet confirmed against a real CI run.
+  `requestDelete`/`delete`) -- `open`/`downloadWithoutOpening`/
+  `fastDownload`/`saveViaPanel`/`save` aren't unit-tested, matching zouk
+  itself: they require a real modal file-dialog interaction, not something
+  either codebase unit-tests. Uses `kotlinx-coroutines-test`'s `runTest` so
+  the 2-second connecting floor and `delete()`'s 2-second failure flash
+  don't actually slow the suite down.
+- `.github/workflows/windows-package.yml` now also triggers on a `v*` tag
+  push and attaches the built `.msi` to a real GitHub Release
+  (`softprops/action-gh-release`) in that case, not just uploading it as a
+  workflow-run artifact -- still unconfirmed against a real CI run (see
+  "Not done yet" below).
 - Visual fidelity against zouk on `HostEntryView`/`ConnectingView`, tuned
   through several rounds of real side-by-side screenshots (including exact
   pixel measurements at one point) rather than guessed once and left:
@@ -127,17 +143,16 @@ What's real:
    macOS-only) -- every scan currently renders with `DogEaredDocumentIcon`,
    zouk's own placeholder for an uncached thumbnail, since that's a real
    `AppModel.thumbnail(for:)` cache miss state in the Swift original too.
-2. Double-click download+open, the right-click context menu (Download and
-   Open / Download to.../ Fast Download / Move to Trash), the save panel
-   (needs a JVM file-chooser integration), and the `savingMessage`/
-   `savedMessage` toasts those flows drive -- `delete()`'s own failure flash
-   is the only `savingMessage` use wired up so far.
-3. `ScanGridView` itself hasn't been visually compared against zouk's real
-   screenshots the way `HostEntryView`/`ConnectingView` have -- worth a same
-   side-by-side pass (cell sizing/spacing, footer layout, selection tint)
-   before trusting it matches pixel-for-pixel.
-4. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
-   a real `windows-latest` run -- still unconfirmed.
+2. `ScanGridView` itself hasn't been visually compared against zouk's real
+   screenshots the way `HostEntryView`/`ConnectingView` have -- selection,
+   the footer, and the save/open/context-menu flow are all confirmed
+   *functionally* working on real hardware, but a same pixel-for-pixel
+   side-by-side pass (cell sizing/spacing, footer layout) hasn't happened
+   yet.
+3. Confirm CI (`windows-package.yml`) actually produces a working `.msi` on
+   a real `windows-latest` run, and that a `v*` tag push actually attaches
+   it to a GitHub Release -- still unconfirmed until the v0.2.0 tag below
+   is pushed and the workflow run is checked.
 
 ## Dependency on humane-kotlin
 

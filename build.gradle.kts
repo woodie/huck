@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.netpress"
-version = "0.1.0"
+version = "0.2.0"
 
 kotlin {
     jvmToolchain(17)
@@ -91,7 +91,7 @@ compose.desktop {
             // OS as well.
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Huck"
-            packageVersion = "0.1.0"
+            packageVersion = "0.2.0"
         }
     }
 }
