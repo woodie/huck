@@ -626,7 +626,7 @@ than picking one to fix: `Modifier.height(...)` (overriding
 `IconButton` -- an explicit tighter external constraint wins over
 `defaultMinSize`/`sizeIn`, which only expand into whatever slack the
 incoming constraints still allow), a smaller `contentPadding`, an explicit
-smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. Four
+smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. Five
 real side-by-side passes against zouk's native menu so far: a first pass
 at a literal ~60% of every dimension (28dp height, 10dp padding, 15dp
 icon, 5dp spacer, `body2`/14sp text) read too big; a second pass (22dp
@@ -634,10 +634,15 @@ height, 6dp padding, 13dp icon, 4dp spacer, `caption`/12sp text) swung too
 far the other way, confirmed directly ("we're now too far the other
 way"); a third pass (24dp height, 8dp padding, 14dp icon, 5dp spacer,
 back to `body2`/14sp text) got the font size right ("looks perfect",
-confirmed directly) but still wanted "a touch more padding" -- landed
-back on the first pass's 28dp height/10dp padding for that (keeping the
-14dp icon and 5dp spacer from the third pass, not reverting those too),
-since "more padding" was the only thing asked for this round. zouk's own
+confirmed directly) but still wanted "a touch more padding," so a fourth
+pass went back to the first pass's 28dp height/10dp padding for just
+those two (keeping the third pass's 14dp icon/5dp spacer/`body2` text,
+not reverting those too); asked next for "1/2 as much padding as the
+previous run," read as half of that fourth pass's *increase* over the
+third pass (height +4dp -> +2dp, padding +2dp -> +1dp) rather than half
+the absolute values (which would put height at 14dp, smaller than the
+icon itself) -- landed on 26dp height, 9dp padding for this fifth pass.
+Icon/spacer/text unchanged from the third pass throughout. zouk's own
 menu is almost certainly just SwiftUI's unstyled `.contextMenu`
 default rather than a deliberately hand-tuned size (nothing in zouk's own
 `docs/COWORK.md`/`docs/COMMENTS.md` suggests otherwise), so this is a
