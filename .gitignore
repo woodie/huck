@@ -11,6 +11,9 @@ build/
 *.iml
 out/
 
+# macOS
+.DS_Store
+
 # Compiled class files
 *.class
 
