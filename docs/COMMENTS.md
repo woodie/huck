@@ -149,14 +149,36 @@ height moved either time.
 
 ### `java.net.http.HttpClient`, not a third-party HTTP library
 Matches this account's stdlib-first posture in Go/Ruby -- no Ktor/OkHttp
-dependency for what's a handful of GET/DELETE calls.
+dependency for what's a handful of GET/DELETE calls. Lives in
+`ScanHttpClient.kt`'s `JdkHttpScanHttpClient` now, not directly in
+`ScanClient` -- see that file's own comments for the `ScanHttpClient`
+testability seam this enabled (matching zouk's own `ScanHTTPClient`
+protocol), and `ScanClientSpec.kt` for the resulting real test coverage.
 
-### `cachedFile`'s direct-to-destination write
-Downloads straight to the cache path via `HttpResponse.BodyHandlers.ofFile`.
-Swift's version downloads to a temp file first, then moves it into place --
-more robust against a crash/interrupt mid-download leaving a corrupt cached
-file behind. Not ported yet; worth doing before this client is trusted with
-larger files.
+### `cachedFile`'s direct-to-destination write -- fixed
+Used to download straight to the cache path via
+`HttpResponse.BodyHandlers.ofFile`, unlike Swift's download-to-temp-then-move
+(more robust against a crash/interrupt mid-download leaving a corrupt cached
+file behind). Resolved as a side effect of adding `ScanHttpClient` (see
+below): its `download(url:)` returns its own temp file, and `cachedFile`
+moves that into place itself via `Files.move(..., REPLACE_EXISTING)`.
+
+## src/main/kotlin/com/netpress/huck/ScanHttpClient.kt
+
+### `ScanHttpClient` -- a testability seam, matching zouk's `ScanHTTPClient` protocol
+`ScanClient` used to call `java.net.http.HttpClient` directly, which made it
+untestable (`HttpClient`'s `send()` isn't something a fake can substitute
+for cleanly -- it's a single generic method over a `BodyHandler`, not a
+small per-verb surface). `ScanHttpClient` adds one method per verb
+`ScanClient` actually needs (`get`/`download`/`delete`) instead of
+mechanically porting `URLSession`'s own three methods
+(`data(from:)`/`download(from:)`/`data(for:)`) -- `HttpClient` doesn't share
+that shape, and a verb-per-method interface means the DELETE verb is
+guaranteed correct by construction rather than something a test has to
+separately check the way zouk's `ScanClientSpec` does (it inspects
+`request.httpMethod` on its generic `data(for:)` fake). `JdkHttpScanHttpClient`
+is the real implementation; `FakeScanHttpClient` (test sources) is the fake,
+matching zouk's own `FakeHTTPClient`.
 
 ### `connectTimeout`/`REQUEST_TIMEOUT`, where `HttpClient.newHttpClient()` has none
 `java.net.http.HttpClient`'s own defaults have no timeout at all, on either
@@ -171,10 +193,9 @@ unresponsive server suspends the calling coroutine indefinitely instead of
 throwing -- there's no other path back to a usable UI state. Fixed with a
 10s `connectTimeout` on the `HttpClient` plus a 30s `REQUEST_TIMEOUT`
 applied via `.timeout(...)` on every `HttpRequest` builder
-(`fetchScans`/`cachedFile`/`delete`) -- one constant for all three request
-kinds (generous enough for a real file download over a slow local network,
-not just a `files.json`/DELETE round-trip) rather than tuning each
-separately.
+(`get`/`download`/`delete`) -- one constant for all three request kinds
+(generous enough for a real file download over a slow local network, not
+just a `files.json`/DELETE round-trip) rather than tuning each separately.
 
 ## src/main/kotlin/com/netpress/huck/ScanEntry.kt
 

@@ -5,47 +5,26 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 class ScanClientError(
     message: String,
 ) : Exception(message)
 
-// Ports zouk's ScanClient (Sources/ZoukKit/ScanClient.swift) onto java.net.http.HttpClient --
-// no separate HTTP library dependency, matching this account's "stdlib first" posture in
-// Go/Ruby. See docs/COMMENTS.md for the cachedFile robustness gap (direct-to-destination
-// write here, vs. Swift's download-to-temp-then-move).
+// Ports zouk's ScanClient (Sources/ZoukKit/ScanClient.swift). httpClient is the same
+// testability seam zouk's own ScanHTTPClient protocol is -- see ScanHttpClient.kt.
 class ScanClient(
     private val baseUrl: URI,
-    // connectTimeout() here plus REQUEST_TIMEOUT on every request below -- HttpClient.
-    // newHttpClient()'s own defaults have NO timeout at all on either front. Confirmed as a real
-    // gap on a real run: a delete() whose DELETE request never completed left AppModel.isBusy
-    // stuck true forever (nothing ever reached the catch/finally to reset it), which disabled
-    // the refresh button and generally "locked" the app until it was force-restarted. Without a
-    // timeout, a hung connection or an unresponsive server suspends the calling coroutine
-    // indefinitely instead of throwing -- there's no other path back to a usable UI state.
-    private val httpClient: HttpClient =
-        HttpClient
-            .newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build(),
+    private val httpClient: ScanHttpClient = JdkHttpScanHttpClient(),
 ) : ScanFetching {
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun fetchScans(): List<ScanEntry> =
         withContext(Dispatchers.IO) {
-            val request =
-                HttpRequest
-                    .newBuilder(baseUrl.resolve("files.json"))
-                    .timeout(REQUEST_TIMEOUT)
-                    .GET()
-                    .build()
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-            checkOk(response.statusCode())
-            json.decodeFromString(response.body())
+            val result = httpClient.get(baseUrl.resolve("files.json"))
+            checkOk(result.statusCode)
+            json.decodeFromString(result.body.decodeToString())
         }
 
     // Re-downloads on a scan.size mismatch instead of trusting a stale same-named cache entry.
@@ -57,15 +36,11 @@ class ScanClient(
             val local = File(cacheDirectory, scan.name)
             if (local.exists() && local.length() == scan.size) return@withContext local
 
+            val result = httpClient.download(baseUrl.resolve(scan.path))
+            checkOk(result.statusCode)
+
             cacheDirectory.mkdirs()
-            val request =
-                HttpRequest
-                    .newBuilder(baseUrl.resolve(scan.path))
-                    .timeout(REQUEST_TIMEOUT)
-                    .GET()
-                    .build()
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(local.toPath()))
-            checkOk(response.statusCode())
+            Files.move(result.tempFile.toPath(), local.toPath(), StandardCopyOption.REPLACE_EXISTING)
             local
         }
 
@@ -83,14 +58,8 @@ class ScanClient(
     // DELETE on the same path GET uses to download; lambada-web shares one route for both verbs.
     override suspend fun delete(scan: ScanEntry) {
         withContext(Dispatchers.IO) {
-            val request =
-                HttpRequest
-                    .newBuilder(baseUrl.resolve(scan.path))
-                    .timeout(REQUEST_TIMEOUT)
-                    .DELETE()
-                    .build()
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.discarding())
-            checkOk(response.statusCode())
+            val result = httpClient.delete(baseUrl.resolve(scan.path))
+            checkOk(result.statusCode)
         }
     }
 
@@ -99,11 +68,6 @@ class ScanClient(
     }
 
     companion object {
-        // Generous enough for a real file download over a slow local network, not just a
-        // files.json/DELETE round-trip -- one constant for all four request kinds rather than
-        // tuning each separately, matching this file's existing "keep it simple" posture.
-        private val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(30)
-
         // Finder-style de-dup naming: "scan.pdf" -> "scan (1).pdf" instead of overwriting.
         fun uniqueDestination(
             filename: String,

@@ -118,12 +118,23 @@ What's real:
   zouk's own property names and priority. Confirmed working end-to-end on
   real hardware (menu, double-click, and select/deselect all verified).
 - Kotest specs for `ScanEntry` and `AppModel` (connection, selection,
-  `requestDelete`/`delete`) -- `open`/`downloadWithoutOpening`/
-  `fastDownload`/`saveViaPanel`/`save` aren't unit-tested, matching zouk
-  itself: they require a real modal file-dialog interaction, not something
-  either codebase unit-tests. Uses `kotlinx-coroutines-test`'s `runTest` so
-  the 2-second connecting floor and `delete()`'s 2-second failure flash
-  don't actually slow the suite down.
+  `requestDelete`/`delete`) -- `AppModel.open`/`downloadWithoutOpening`/
+  `fastDownload`/`saveViaPanel` aren't unit-tested, matching zouk itself:
+  they require a real modal file-dialog interaction, not something either
+  codebase unit-tests. Uses `kotlinx-coroutines-test`'s `runTest` so the
+  2-second connecting floor and `delete()`'s 2-second failure flash don't
+  actually slow the suite down.
+- `ScanClientSpec`, matching zouk's own -- previously missing entirely
+  (`ScanClient` called `java.net.http.HttpClient` directly, with no seam a
+  fake could substitute into). `ScanHttpClient.kt` adds that seam
+  (`ScanHttpClient` interface, real `JdkHttpScanHttpClient` implementation),
+  matching zouk's own `ScanHTTPClient` protocol -- see its own comments for
+  why the shape differs (one method per verb `ScanClient` needs, not a
+  mechanical port of `URLSession`'s three). Covers `fetchScans`/`cachedFile`
+  (including the stale-cache-by-size regression case)/`delete`/`save`/
+  `uniqueDestination` -- the same real coverage zouk's `ScanClientSpec` has.
+  `ScanClient.save` (the HTTP+file-copy operation) is tested here, distinct
+  from `AppModel.save`/`open`/etc. above, which still aren't.
 - `.github/workflows/windows-package.yml` now also triggers on a `v*` tag
   push and attaches the built `.msi` to a real GitHub Release
   (`softprops/action-gh-release`) in that case, not just uploading it as a
