@@ -626,17 +626,22 @@ than picking one to fix: `Modifier.height(...)` (overriding
 `IconButton` -- an explicit tighter external constraint wins over
 `defaultMinSize`/`sizeIn`, which only expand into whatever slack the
 incoming constraints still allow), a smaller `contentPadding`, an explicit
-smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. First
-pass landed on a literal ~60% of every dimension (28dp height, 10dp
-padding, 15dp icon, 5dp spacer, `body2`/14sp text) -- still too big on a
-second real side-by-side (zouk's native menu reads noticeably tighter),
-so trimmed further to 22dp height, 6dp padding, 13dp icon, 4dp spacer, and
-`caption`/12sp text. zouk's own menu is almost certainly just SwiftUI's
-unstyled `.contextMenu` default rather than a deliberately hand-tuned size
-(nothing in zouk's own `docs/COWORK.md`/`docs/COMMENTS.md` suggests
-otherwise), so this is a reasonable visual match rather than a pixel-exact
-port -- there's no real "zouk's contextMenu row is Npt tall" number to
-target the way `HostTextField`'s sizing had one.
+smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. Three
+real side-by-side passes against zouk's native menu so far: a first pass
+at a literal ~60% of every dimension (28dp height, 10dp padding, 15dp
+icon, 5dp spacer, `body2`/14sp text) read too big; a second pass (22dp
+height, 6dp padding, 13dp icon, 4dp spacer, `caption`/12sp text) swung too
+far the other way, confirmed directly ("we're now too far the other
+way"); settled for now on a middle point between the two -- 24dp height,
+8dp padding, 14dp icon, 5dp spacer, back to `body2`/14sp text (a size up
+from `caption`, per the explicit "slight increase on font size" ask).
+zouk's own menu is almost certainly just SwiftUI's unstyled `.contextMenu`
+default rather than a deliberately hand-tuned size (nothing in zouk's own
+`docs/COWORK.md`/`docs/COMMENTS.md` suggests otherwise), so this is a
+reasonable visual match rather than a pixel-exact port -- there's no real
+"zouk's contextMenu row is Npt tall" number to target the way
+`HostTextField`'s sizing had one, so further nudges here are just more
+real-screenshot iteration, not a bug to root-cause.
 Pulled into its own private composable (`icon`/`label`/`onClick`
 parameters) rather than repeating all five modifiers/params at each of the
 four call sites -- same reasoning as `CircularIconButton`'s own extraction

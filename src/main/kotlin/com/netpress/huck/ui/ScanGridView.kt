@@ -529,11 +529,11 @@ private fun ScanContextMenuItem(
 ) {
     DropdownMenuItem(
         onClick = onClick,
-        modifier = Modifier.height(22.dp),
-        contentPadding = PaddingValues(horizontal = 6.dp),
+        modifier = Modifier.height(24.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(13.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(label, style = MaterialTheme.typography.caption)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.body2)
     }
 }
