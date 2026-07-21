@@ -315,6 +315,32 @@ Companion fix in `zouk` (Swift sibling, different toolchain, same gap): it
 had no `check` target at all before this. See its own `docs/COWORK.md` for
 that half.
 
-Not yet confirmed on real hardware -- needs a real `make check`/`make test`
-pair run on woodie's Mac to confirm `check` actually stays quiet on a clean
-pass (just prints `PASS`) and `test` still renders the full tree unchanged.
+Confirmed on real hardware: a real `make check` run caught an actual
+`compileKotlin` failure (the `PointerMatcher` import bug below) and dumped
+the full Gradle failure log as designed, then a clean run afterward
+printed nothing but `PASS`. A follow-up deliberate typo
+(`onOpenTypoForVerification`), introduced and reverted without ever being
+committed, confirmed the same failure path a second time on purpose.
+
+## `PointerMatcher` import bug, caught by the first real `make check` run
+
+The right-click menu work above imported `PointerMatcher` from
+`androidx.compose.ui.input.pointer` (alongside `PointerButton`, used
+together at the same call site) -- wrong package, confirmed by a real
+`compileKotlin` failure (`Unresolved reference 'PointerMatcher'`) the
+first time `make check` actually ran against this change. It lives in
+`androidx.compose.foundation` instead, the same package as the `onClick`
+modifier itself. Fixed by moving the import; folded into the original
+(still-unpushed at the time) commit rather than left as a separate "fix
+bug" commit, since the feature had never actually compiled until this
+fix landed.
+
+## v0.3.1: release notes now committed, not auto-generated
+
+`.github/workflows/windows-package.yml`'s release step used
+`generate_release_notes: true` (softprops/action-gh-release's own
+commit-list auto-summary). Switched to `body_path:
+huck/docs/releases/${{ github.ref_name }}.md` instead, matching
+`humane`/`humane-ruby`/`humane-swift`/`zouk`'s own `docs/releases/<tag>.md`
+convention -- write and commit that file before pushing the tag that
+triggers this workflow. `docs/releases/v0.3.1.md` is the first one here.
