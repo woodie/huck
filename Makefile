@@ -34,9 +34,22 @@ test:
 lint:
 	./gradlew ktlintCheck
 
+# Terser than `test` on purpose: suppresses ktlintFormat/clean check's
+# combined output (ktlint's own noise plus the custom TestListener's nested
+# describe/it tree) on success, dumping the full log only on failure --
+# matching next-caltrain-kotlin's own lint/test/check split. Two separate
+# gradlew invocations, not one, for the same task-graph-ordering reason as
+# `build`/`test` above.
 check:
-	./gradlew ktlintFormat
-	./gradlew clean check
+	@LOG=$$(mktemp); \
+	if ./gradlew ktlintFormat > "$$LOG" 2>&1 && ./gradlew clean check >> "$$LOG" 2>&1; then \
+		echo "PASS"; \
+	else \
+		cat "$$LOG"; \
+		rm -f "$$LOG"; \
+		exit 1; \
+	fi; \
+	rm -f "$$LOG"
 
 # Packages a native distribution for whatever OS you're running this on
 # (.dmg on macOS). Windows-native .msi packaging happens in CI -- see

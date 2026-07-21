@@ -285,3 +285,36 @@ relativeTo, whenNil = "an unknown time")` in `ScanEntry.kt`, matching
 `humane-kotlin`'s current `Humane.kt` signature and
 `humane-kotlin/docs/COWORK.md` exactly -- no drift, nothing to change
 there.
+
+## `make check` now actually terse -- `make test` unchanged
+
+Every other repo in this account (`humane`, `humane-ruby`, `humane-swift`,
+`next-caltrain-kotlin`, `next-caltrain-swift`) splits `test` (always
+verbose, documentation-style nested output) from `check` (terse -- silent
+on success, full log dumped on failure). huck's `check` target existed
+already but wasn't actually terse: it ran `./gradlew ktlintFormat` then
+`./gradlew clean check` straight, which reprints the exact same nested
+`TestListener` describe/it tree `make test` does (Gradle's `check` task
+depends on `test`) -- no different from just running `make test` with an
+extra ktlint pass first. This matched `humane-kotlin`'s own `check` target,
+which has the same gap (not fixed here, out of scope for huck's own repo,
+but worth fixing there too if it comes up).
+
+Fixed by wrapping both `./gradlew` calls' combined output in a temp log,
+printed only on failure -- same mktemp-log/silent-on-success/dump-on-failure
+pattern `next-caltrain-kotlin`'s `check` target already uses for `./test.sh`.
+Still two separate `gradlew` invocations, not one, for the same task-graph-
+ordering reason `build`/`test` already run `ktlintFormat` as its own
+invocation (see those targets' own comments) -- Gradle doesn't guarantee
+left-to-right ordering between tasks listed in one invocation, so
+`ktlintFormat` needs to actually finish before `clean check`'s own
+`ktlintCheck` runs against the result. `make test` itself is untouched --
+still prints the full `TestListener` tree exactly as before.
+
+Companion fix in `zouk` (Swift sibling, different toolchain, same gap): it
+had no `check` target at all before this. See its own `docs/COWORK.md` for
+that half.
+
+Not yet confirmed on real hardware -- needs a real `make check`/`make test`
+pair run on woodie's Mac to confirm `check` actually stays quiet on a clean
+pass (just prints `PASS`) and `test` still renders the full tree unchanged.
