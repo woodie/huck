@@ -520,7 +520,7 @@ private fun ScanThumbnailCell(
     }
 }
 
-// Shrinks Material's default DropdownMenuItem sizing (~60% throughout) -- see docs/COMMENTS.md.
+// Shrinks Material's default DropdownMenuItem sizing toward zouk's native menu -- see docs/COMMENTS.md.
 @Composable
 private fun ScanContextMenuItem(
     icon: ImageVector,
@@ -529,11 +529,11 @@ private fun ScanContextMenuItem(
 ) {
     DropdownMenuItem(
         onClick = onClick,
-        modifier = Modifier.height(28.dp),
-        contentPadding = PaddingValues(horizontal = 10.dp),
+        modifier = Modifier.height(22.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(label, style = MaterialTheme.typography.body2)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.caption)
     }
 }

@@ -613,21 +613,30 @@ same `onOpen` as the menu's first item, matching zouk's own
 by this swap, since it goes through `detectTapGestures` on the same
 `Column`, not through the menu itself.
 
-### `ScanContextMenuItem`, shrinking Material's default `DropdownMenuItem` to ~60%
+### `ScanContextMenuItem`, shrinking Material's default `DropdownMenuItem`
 Confirmed too big on a real side-by-side screenshot next to zouk's compact
 native menu -- Material's default `DropdownMenuItem` is a 48dp-minimum-height
 row with 16dp horizontal content padding, an unset (~24dp intrinsic) icon,
 and `subtitle1` (16sp) text, all sized for a touch target rather than a
 small native desktop menu. The oversized look came from all of those
-together, not any single dimension, so all four got trimmed together to
-roughly 60% rather than picking one to fix: `Modifier.height(28.dp)`
-(overriding `DropdownMenuItem`'s internal `sizeIn(minHeight = 48.dp)` the
-same way `CircularIconButton`'s own comment already explains for
-`Button`/`IconButton` -- an explicit tighter external constraint wins over
+together, not any single dimension, so all four got trimmed together rather
+than picking one to fix: `Modifier.height(...)` (overriding
+`DropdownMenuItem`'s internal `sizeIn(minHeight = 48.dp)` the same way
+`CircularIconButton`'s own comment already explains for `Button`/
+`IconButton` -- an explicit tighter external constraint wins over
 `defaultMinSize`/`sizeIn`, which only expand into whatever slack the
-incoming constraints still allow), `contentPadding =
-PaddingValues(horizontal = 10.dp)`, an explicit 15dp `Icon` size, a 5dp
-`Spacer`, and `MaterialTheme.typography.body2` (14sp) for the label text.
+incoming constraints still allow), a smaller `contentPadding`, an explicit
+smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. First
+pass landed on a literal ~60% of every dimension (28dp height, 10dp
+padding, 15dp icon, 5dp spacer, `body2`/14sp text) -- still too big on a
+second real side-by-side (zouk's native menu reads noticeably tighter),
+so trimmed further to 22dp height, 6dp padding, 13dp icon, 4dp spacer, and
+`caption`/12sp text. zouk's own menu is almost certainly just SwiftUI's
+unstyled `.contextMenu` default rather than a deliberately hand-tuned size
+(nothing in zouk's own `docs/COWORK.md`/`docs/COMMENTS.md` suggests
+otherwise), so this is a reasonable visual match rather than a pixel-exact
+port -- there's no real "zouk's contextMenu row is Npt tall" number to
+target the way `HostTextField`'s sizing had one.
 Pulled into its own private composable (`icon`/`label`/`onClick`
 parameters) rather than repeating all five modifiers/params at each of the
 four call sites -- same reasoning as `CircularIconButton`'s own extraction
