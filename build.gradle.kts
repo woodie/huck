@@ -60,6 +60,13 @@ dependencies {
     // Uses JDK's built-in java.net.http.HttpClient for ScanClient -- no
     // separate HTTP library dependency, matching Go/Ruby's "stdlib first"
     // posture.
+
+    // Renders AppModel.thumbnail(for:)'s first PDF page to a BufferedImage. zouk's own
+    // equivalent (PDFKit's PDFDocument/page.thumbnail(of:for:)) is macOS-only, so this is the
+    // JVM stand-in -- pure Java, no native dependency, the JVM PDF renderer docs/COWORK.md
+    // already flagged as the intended fix for real thumbnails.
+    implementation("org.apache.pdfbox:pdfbox:3.0.3")
+
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
     testImplementation("io.kotest:kotest-assertions-core:5.9.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")

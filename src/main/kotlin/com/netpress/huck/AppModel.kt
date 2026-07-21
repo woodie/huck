@@ -3,7 +3,13 @@ package com.netpress.huck
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.rendering.PDFRenderer
 import java.awt.Desktop
 import java.awt.FileDialog
 import java.awt.Frame
@@ -47,9 +53,8 @@ interface ScanFetching {
     suspend fun delete(scan: ScanEntry)
 }
 
-// Ports zouk's AppModel (Sources/ZoukKit/AppModel.swift). Real PDF thumbnails still aren't
-// ported (needs PDFBox, a new dependency) -- see docs/COWORK.md "Current status" for what's
-// real vs. deferred. mutableStateOf properties (not a StateFlow) mirror Swift's @Published
+// Ports zouk's AppModel (Sources/ZoukKit/AppModel.swift). See docs/COWORK.md "Current status"
+// for what's real vs. deferred. mutableStateOf properties (not a StateFlow) mirror Swift's @Published
 // directly and read/write fine in plain Kotest specs with no Compose test rule needed -- only
 // recomposition tracking needs a composition.
 class AppModel(
@@ -87,6 +92,9 @@ class AppModel(
         private set
 
     private var client: ScanFetching? = null
+
+    // Keyed by scan.id, matching zouk's own private var thumbnailCache: [String: NSImage].
+    private val thumbnailCache = mutableMapOf<String, ImageBitmap>()
 
     val selectedScan: ScanEntry?
         get() = scans.firstOrNull { it.id == selectedScanID }
@@ -135,6 +143,29 @@ class AppModel(
     fun toggle(scan: ScanEntry) {
         savedMessage = null
         selectedScanID = if (selectedScanID == scan.id) null else scan.id
+    }
+
+    // Ports zouk's thumbnail(for:) (PDFKit's PDFDocument/page.thumbnail(of:for:), macOS-only) via
+    // PDFBox instead -- renders the first page at a fixed DPI rather than a target pixel size
+    // (PDFRenderer has no direct "fit to CGSize" call), close enough for a 76x96dp grid cell.
+    // Rendering runs on Dispatchers.IO since PDFBox does blocking file/CPU work, matching how
+    // ScanClient's own blocking HttpClient calls are kept off the caller's dispatcher.
+    suspend fun thumbnail(scan: ScanEntry): ImageBitmap? {
+        thumbnailCache[scan.id]?.let { return it }
+        val client = this.client ?: return null
+        return try {
+            val file = client.cachedFile(scan, cacheDirectory)
+            val bitmap =
+                withContext(Dispatchers.IO) {
+                    Loader.loadPDF(file).use { document ->
+                        PDFRenderer(document).renderImageWithDPI(0, THUMBNAIL_DPI).toComposeImageBitmap()
+                    }
+                }
+            thumbnailCache[scan.id] = bitmap
+            bitmap
+        } catch (e: Exception) {
+            null
+        }
     }
 
     // Footer trash button only -- goes through the confirmation dialog. The context menu's own
@@ -256,6 +287,12 @@ class AppModel(
     companion object {
         private const val HOST_KEY = "zouk.lastHost"
         private val MINIMUM_CONNECTING_DURATION: Duration = Duration.ofSeconds(2)
+
+        // 96 DPI at the grid cell's 76x96dp thumbnail size lands in the same rough pixel range
+        // as zouk's CGSize(width: 160, height: 200) target -- exact match isn't possible since
+        // PDFRenderer renders by DPI, not a target pixel size, but 96 keeps text legible without
+        // rendering full-resolution pages nobody's going to see at this size.
+        private const val THUMBNAIL_DPI = 96f
 
         fun baseUrlFrom(input: String): URI? {
             val trimmed = input.trim()

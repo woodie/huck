@@ -44,6 +44,10 @@ fun ContentView(
                 onHostInputChange = { model.hostInput = it },
                 onSubmitHost = { scope.launch { model.connect() } },
                 onRefresh = { scope.launch { model.connect() } },
+                // Called from each cell's own LaunchedEffect (its own coroutine, not this
+                // shared scope) so a slow render doesn't block anything else -- see
+                // ScanThumbnailCell.
+                loadThumbnail = model::thumbnail,
                 onToggle = { model.toggle(it) },
                 onDeselectAll = { model.selectedScanID = null },
                 // Double-click (context menu's "Download and Open") and the other three menu

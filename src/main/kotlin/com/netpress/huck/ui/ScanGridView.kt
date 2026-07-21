@@ -2,6 +2,7 @@ package com.netpress.huck.ui
 
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,15 +37,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,11 +63,10 @@ import java.time.Instant
 // download-and-open, a right-click context menu (Download and Open / Download to... / Fast
 // Download / Move to Trash), the footer bar (savedMessage, then selected scan's date/size + a
 // delete button, falling back to a scan count -- same priority order as zouk), a floating
-// "Saving ...…" capsule overlay, and the delete-confirmation dialog. Still deferred, see
-// docs/COWORK.md: real PDF thumbnails (needs PDFBox, a new dependency -- DogEaredDocumentIcon
-// below is zouk's own placeholder shape for an uncached thumbnail, ported directly since it's
-// just vector paths, no PDF rendering involved) -- so every scan renders with that placeholder
-// for now.
+// "Saving ...…" capsule overlay, the delete-confirmation dialog, and real PDF thumbnails (via
+// AppModel.thumbnail(for:), PDFBox-backed -- see its own comment for why). DogEaredDocumentIcon
+// below is zouk's own placeholder shape, still used for the gap between a cell appearing and its
+// thumbnail finishing (or a render that fails).
 //
 // Toolbar matches zouk's real one -- a refresh icon button, not a text button, and a host field
 // in place of a separate "Change server" button. Enter in the field re-runs connect() against
@@ -92,6 +97,7 @@ fun ScanGridView(
     // own context menu deliberately skips the confirmation dialog for this path (see
     // AppModel.requestDelete's comment).
     onDeleteImmediately: (ScanEntry) -> Unit,
+    loadThumbnail: suspend (ScanEntry) -> ImageBitmap?,
 ) {
     // A Box, not just the Column directly -- the Column holds the real layout (toolbar/content/
     // footer), and the saving-message capsule below is a sibling overlay on top of it, matching
@@ -175,6 +181,7 @@ fun ScanGridView(
                                     onDownloadWithoutOpening = { onDownloadWithoutOpening(scan) },
                                     onFastDownload = { onFastDownload(scan) },
                                     onDeleteImmediately = { onDeleteImmediately(scan) },
+                                    loadThumbnail = loadThumbnail,
                                 )
                             }
                         }
@@ -391,7 +398,13 @@ private fun ScanThumbnailCell(
     onDownloadWithoutOpening: () -> Unit,
     onFastDownload: () -> Unit,
     onDeleteImmediately: () -> Unit,
+    loadThumbnail: suspend (ScanEntry) -> ImageBitmap?,
 ) {
+    // Keyed on scan.id, matching zouk's @State private var image: NSImage? + .task { ... } --
+    // a fresh LaunchedEffect (and thumbnail fetch) per distinct scan, not per recomposition.
+    var image by remember(scan.id) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(scan.id) { image = loadThumbnail(scan) }
+
     // detectTapGestures(onTap, onDoubleTap) replaces the plain clickable() this started with --
     // clickable() only recognizes single taps, so a real double-click just fired onToggle twice
     // in a row (select, then immediately deselect), confirmed on a real run. detectTapGestures
@@ -445,7 +458,21 @@ private fun ScanThumbnailCell(
                             RoundedCornerShape(10.dp),
                         ).padding(14.dp),
             ) {
-                DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+                val thumbnailImage = image
+                if (thumbnailImage != null) {
+                    Image(
+                        bitmap = thumbnailImage,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier =
+                            Modifier
+                                .size(width = 76.dp, height = 96.dp)
+                                .background(MaterialTheme.colors.surface)
+                                .clip(RoundedCornerShape(6.dp)),
+                    )
+                } else {
+                    DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+                }
             }
 
             Text(

@@ -93,8 +93,19 @@ What's real:
   weren't declared against the interface `AppModel` actually holds onto yet.
   `DogEaredDocumentIcon` (zouk's real placeholder shape for an uncached
   thumbnail) is ported directly via Compose's `GenericShape` -- it's just
-  vector paths, no PDF rendering involved, so every scan renders with this
-  placeholder for now (see "Not done yet" below for real thumbnails).
+  vector paths, no PDF rendering involved, so it's still what renders for
+  the gap between a cell appearing and its thumbnail finishing (or failing).
+- Real PDF thumbnails: `AppModel.thumbnail(for:)` now renders each scan's
+  first page via Apache PDFBox (`Loader.loadPDF`/`PDFRenderer`,
+  `renderImageWithDPI` at a fixed 96 DPI) rather than zouk's macOS-only
+  `PDFKit`, converted to a Compose `ImageBitmap` via
+  `BufferedImage.toComposeImageBitmap()` and cached by `scan.id` the same
+  way zouk caches by `NSImage`. `ScanThumbnailCell` fetches it per-cell via
+  `LaunchedEffect(scan.id)`, matching zouk's own per-cell `.task { image =
+  await model.thumbnail(for: scan) }`. Not yet confirmed on real hardware --
+  written by inspection against PDFBox's real (searched) 3.x API, needs a
+  `make build`/`make test` and a real run against an actual scan server to
+  verify rendering, sizing, and caching all behave.
 - Double-click (`detectTapGestures`) triggers download-and-open
   (`AppModel.open`), and a real right-click context menu (`ContextMenuArea`)
   matches zouk's four items exactly: Download and Open, Download to…
@@ -139,17 +150,13 @@ What's real:
 
 ### Not done yet (in rough order)
 
-1. Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
-   macOS-only) -- every scan currently renders with `DogEaredDocumentIcon`,
-   zouk's own placeholder for an uncached thumbnail, since that's a real
-   `AppModel.thumbnail(for:)` cache miss state in the Swift original too.
-2. `ScanGridView` itself hasn't been visually compared against zouk's real
+1. `ScanGridView` itself hasn't been visually compared against zouk's real
    screenshots the way `HostEntryView`/`ConnectingView` have -- selection,
    the footer, and the save/open/context-menu flow are all confirmed
    *functionally* working on real hardware, but a same pixel-for-pixel
    side-by-side pass (cell sizing/spacing, footer layout) hasn't happened
    yet.
-3. CI (`windows-package.yml`) is now confirmed producing a working `.msi`
+2. CI (`windows-package.yml`) is now confirmed producing a working `.msi`
    on a real `windows-latest` run and attaching it to a real GitHub
    Release on a `v*` tag push (`v0.2.0`:
    https://github.com/woodie/huck/releases/tag/v0.2.0). That installed
