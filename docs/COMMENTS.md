@@ -626,16 +626,19 @@ than picking one to fix: `Modifier.height(...)` (overriding
 `IconButton` -- an explicit tighter external constraint wins over
 `defaultMinSize`/`sizeIn`, which only expand into whatever slack the
 incoming constraints still allow), a smaller `contentPadding`, an explicit
-smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. Three
+smaller `Icon` size, a smaller `Spacer`, and a smaller `Text` style. Four
 real side-by-side passes against zouk's native menu so far: a first pass
 at a literal ~60% of every dimension (28dp height, 10dp padding, 15dp
 icon, 5dp spacer, `body2`/14sp text) read too big; a second pass (22dp
 height, 6dp padding, 13dp icon, 4dp spacer, `caption`/12sp text) swung too
 far the other way, confirmed directly ("we're now too far the other
-way"); settled for now on a middle point between the two -- 24dp height,
-8dp padding, 14dp icon, 5dp spacer, back to `body2`/14sp text (a size up
-from `caption`, per the explicit "slight increase on font size" ask).
-zouk's own menu is almost certainly just SwiftUI's unstyled `.contextMenu`
+way"); a third pass (24dp height, 8dp padding, 14dp icon, 5dp spacer,
+back to `body2`/14sp text) got the font size right ("looks perfect",
+confirmed directly) but still wanted "a touch more padding" -- landed
+back on the first pass's 28dp height/10dp padding for that (keeping the
+14dp icon and 5dp spacer from the third pass, not reverting those too),
+since "more padding" was the only thing asked for this round. zouk's own
+menu is almost certainly just SwiftUI's unstyled `.contextMenu`
 default rather than a deliberately hand-tuned size (nothing in zouk's own
 `docs/COWORK.md`/`docs/COMMENTS.md` suggests otherwise), so this is a
 reasonable visual match rather than a pixel-exact port -- there's no real
