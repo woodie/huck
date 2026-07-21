@@ -1,7 +1,8 @@
 # Developing huck
 
-Building from source and the project layout. For context on the
-project's history, see [docs/COWORK.md](COWORK.md).
+Building from source and the project layout. For cutting a release, see
+[docs/DELIVERY.md](DELIVERY.md); for context on the project's history,
+see [docs/COWORK.md](COWORK.md).
 
 ## Requirements
 
@@ -33,6 +34,8 @@ make package  # ./gradlew packageDistributionForCurrentOS -- .dmg on macOS
 - `src/test/kotlin/com/netpress/huck` -- Kotest specs for the above.
 - `docs/COMMENTS.md` -- rationale for non-obvious code, organized by file.
 - `docs/COWORK.md` -- context for picking this project back up cold.
+- `docs/DELIVERY.md` -- how to cut a release, and why the `.msi` isn't
+  code-signed yet.
 - `docs/releases/<tag>.md` -- hand-written release notes, read by
   `.github/workflows/windows-package.yml` on a tagged release.
 - `.github/workflows/windows-package.yml` -- builds a real Windows `.msi`
