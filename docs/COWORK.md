@@ -232,3 +232,56 @@ into an actual calculation (assumed 2x Retina scale, worked out how much of
 that gap was padding vs. line height) -- worth asking for real pixel
 measurements rather than iterating blind on "smaller"/"a bit less" when
 sizing needs to land close on the first real try.
+
+## Done: right-click menu icons/separator, smaller toolbar icons
+
+Brought `ScanThumbnailCell`'s right-click menu closer to zouk's real
+`.contextMenu` (see zouk's own `docs/COWORK.md`, issue #4 entry): zouk's
+four items each have an SF Symbol icon plus a `Divider()` ahead of the
+destructive "Move to Trash" item; huck's old `ContextMenuArea`/
+`ContextMenuItem` menu was plain text with no separator, confirmed against
+a real side-by-side screenshot of both apps. Also asked for: the toolbar
+refresh button and footer trash button (`CircularIconButton`) a touch
+smaller.
+
+`build.gradle.kts` gained `org.jetbrains.compose.material:material-icons-extended:1.7.3`
+(same pin as the existing `material-icons-core:1.7.3`, for the same "last
+version published under this coordinate" reason) -- `material-icons-core`
+only bundles the ~50 most-common icons (confirmed against the real
+published API surface), and none of those cover "download" or "open
+externally".
+
+`ScanGridView.kt` itself is now edited (by inspection, not yet confirmed on
+real hardware -- see "Not confirmed yet" below): `ContextMenuArea`/
+`ContextMenuItem` had no icon or separator support in its public API
+(confirmed -- `ContextMenuItem` is just a label + `onClick`), so it's been
+replaced with a manually triggered `androidx.compose.material.DropdownMenu`/
+`DropdownMenuItem` instead, opened via the experimental
+`Modifier.onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary),
+...)` (the documented Compose Desktop pattern for a non-primary-button
+click, `@OptIn(ExperimentalFoundationApi::class)`). Icon mapping:
+`Icons.Filled.OpenInNew` (Download and Open), `.CloudDownload` (Download
+to…), `.FileDownload` (Fast Download), `.Delete` (Move to Trash) -- with a
+`Divider()` immediately before the Delete item, matching zouk.
+`CircularIconButton`'s box shrank 28dp -> 24dp and its icon 24dp (intrinsic
+default) -> an explicit 18dp; the footer's `height(32.dp)` comment (which
+cited "28dp icon" as the reason for that number) was updated to cite 24dp
+to match, rather than left stale. See `docs/COMMENTS.md`'s
+"`DropdownMenu`, not `ContextMenuArea`/`ContextMenuItem`" and
+"`CircularIconButton`'s box/icon size" entries (under `ScanGridView.kt`)
+for the full rationale.
+
+### Not confirmed yet
+Not confirmed on real hardware -- no local Kotlin/Compose toolchain in the
+sandbox (see "Toolchain gap" below), so this needs a real `make build`/
+`make test` plus an actual run: right-click a scan and confirm the
+`DropdownMenu` opens with all four icons, the divider lands before "Move to
+Trash", and the shrunk `CircularIconButton` still looks right in both the
+toolbar and footer.
+
+Separately confirmed and not in question: the footer's delete-confirmation
+`timeAgo` string already goes through `Humane.distanceInTime(downloadedAt,
+relativeTo, whenNil = "an unknown time")` in `ScanEntry.kt`, matching
+`humane-kotlin`'s current `Humane.kt` signature and
+`humane-kotlin/docs/COWORK.md` exactly -- no drift, nothing to change
+there.

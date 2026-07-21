@@ -42,6 +42,13 @@ dependencies {
     // with the newer 1.11.0 runtime.
     implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
 
+    // Icons.Filled.OpenInNew/CloudDownload/FileDownload for the right-click context
+    // menu (see ScanGridView.kt) -- material-icons-core above only bundles the ~50
+    // most-common icons, and none of those cover "download"/"open externally". Same
+    // 1.7.3 pin as material-icons-core, for the same reason (last version published
+    // under this coordinate; the icon set itself hasn't changed since).
+    implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+
     // Composite-build dependency (see settings.gradle.kts) -- Gradle substitutes
     // this coordinate with the ../humane-kotlin project automatically because
     // that build's own group:name (see its build.gradle.kts/settings.gradle.kts)

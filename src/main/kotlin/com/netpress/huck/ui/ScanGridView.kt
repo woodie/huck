@@ -1,8 +1,8 @@
 package com.netpress.huck.ui
 
-import androidx.compose.foundation.ContextMenuArea
-import androidx.compose.foundation.ContextMenuItem
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.PointerMatcher
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,27 +14,35 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.onClick
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.Divider
+import androidx.compose.material.DropdownMenu
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +57,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -244,11 +253,11 @@ private fun ScanGridFooter(
 ) {
     Row(
         // A fixed height, not vertical padding sized to content -- otherwise this row grows
-        // whenever the selected-scan branch is showing (its CircularIconButton is 28dp tall,
+        // whenever the selected-scan branch is showing (its CircularIconButton is 24dp tall,
         // noticeably more than the caption text alone), confirmed via a real screenshot: the
         // footer visibly grew taller the moment a scan got selected. 32dp (tightened from an
         // initial 40dp, roughly 80% -- confirmed too tall on a real side-by-side against zouk)
-        // still comfortably fits the 28dp icon either way, so the footer's height stays
+        // still comfortably fits the 24dp icon either way, so the footer's height stays
         // constant across all three states.
         modifier = Modifier.fillMaxWidth().height(32.dp).padding(horizontal = 14.dp),
         horizontalArrangement = Arrangement.Center,
@@ -319,7 +328,7 @@ private fun CircularIconButton(
     Box(
         modifier =
             modifier
-                .size(28.dp)
+                .size(24.dp)
                 .clip(CircleShape)
                 .background(MaterialTheme.colors.onSurface.copy(alpha = tintAlpha))
                 .clickable(
@@ -333,6 +342,7 @@ private fun CircularIconButton(
         Icon(
             icon,
             contentDescription = contentDescription,
+            modifier = Modifier.size(18.dp),
             tint = MaterialTheme.colors.onSurface.copy(alpha = if (enabled) 1f else 0.38f),
         )
     }
@@ -389,6 +399,7 @@ private fun DogEaredDocumentIcon(modifier: Modifier = Modifier) {
 // pale-purple hue) and missing zouk's actual glow entirely.
 private val SelectionBlue = Color(0xFF0A84FF)
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ScanThumbnailCell(
     scan: ScanEntry,
@@ -405,32 +416,28 @@ private fun ScanThumbnailCell(
     var image by remember(scan.id) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(scan.id) { image = loadThumbnail(scan) }
 
-    // detectTapGestures(onTap, onDoubleTap) replaces the plain clickable() this started with --
-    // clickable() only recognizes single taps, so a real double-click just fired onToggle twice
-    // in a row (select, then immediately deselect), confirmed on a real run. detectTapGestures
-    // gives double-tap explicit precedence itself (a second tap within the system's double-tap
-    // timeout consumes both taps and fires only onDoubleTap, matching zouk's own
-    // .exclusively(before:) between its two TapGesture recognizers) -- no manual timing/state
-    // needed here.
-    ContextMenuArea(
-        items = {
-            listOf(
-                ContextMenuItem("Download and Open", onOpen),
-                ContextMenuItem("Download to…", onDownloadWithoutOpening),
-                ContextMenuItem("Fast Download", onFastDownload),
-                // Skips the confirmation dialog deliberately, matching zouk's own comment on
-                // this exact menu item -- only the footer trash button confirms.
-                ContextMenuItem("Move to Trash", onDeleteImmediately),
-            )
-        },
-    ) {
+    // ContextMenuArea/ContextMenuItem has no icon or separator support (label + onClick only),
+    // so the menu itself is a manually triggered DropdownMenu instead -- see docs/COMMENTS.md.
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    Box {
+        // detectTapGestures(onTap, onDoubleTap) replaces the plain clickable() this started
+        // with -- clickable() only recognizes single taps, so a real double-click just fired
+        // onToggle twice in a row (select, then immediately deselect), confirmed on a real run.
+        // detectTapGestures gives double-tap explicit precedence itself (a second tap within
+        // the system's double-tap timeout consumes both taps and fires only onDoubleTap,
+        // matching zouk's own .exclusively(before:) between its two TapGesture recognizers) --
+        // no manual timing/state needed here.
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier =
-                Modifier.pointerInput(scan.id) {
-                    detectTapGestures(onTap = { onToggle() }, onDoubleTap = { onOpen() })
-                },
+                Modifier
+                    .pointerInput(scan.id) {
+                        detectTapGestures(onTap = { onToggle() }, onDoubleTap = { onOpen() })
+                    }.onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary)) {
+                        menuExpanded = true
+                    },
         ) {
             Box(
                 modifier =
@@ -486,6 +493,44 @@ private fun ScanThumbnailCell(
                         .background(if (isSelected) SelectionBlue else Color.Transparent, RoundedCornerShape(4.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp),
             )
+        }
+
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(onClick = {
+                menuExpanded = false
+                onOpen()
+            }) {
+                Icon(Icons.Filled.OpenInNew, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Download and Open")
+            }
+            DropdownMenuItem(onClick = {
+                menuExpanded = false
+                onDownloadWithoutOpening()
+            }) {
+                Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Download to…")
+            }
+            DropdownMenuItem(onClick = {
+                menuExpanded = false
+                onFastDownload()
+            }) {
+                Icon(Icons.Filled.FileDownload, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Fast Download")
+            }
+            Divider()
+            // Skips the confirmation dialog deliberately, matching zouk's own comment on this
+            // exact menu item -- only the footer trash button confirms.
+            DropdownMenuItem(onClick = {
+                menuExpanded = false
+                onDeleteImmediately()
+            }) {
+                Icon(Icons.Filled.Delete, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Move to Trash")
+            }
         }
     }
 }

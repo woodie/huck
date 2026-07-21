@@ -575,14 +575,45 @@ system's double-tap timeout consumes both taps and fires only
 `TapGesture` recognizers -- no manual timing/state needed to reproduce that
 here.
 
-### `ContextMenuArea`/`ContextMenuItem`, Compose Desktop's real right-click menu API
-Wraps each `ScanThumbnailCell`, matching zouk's real four-item
-`.contextMenu` exactly: "Download and Open" (`onOpen`), "Download to…"
-(`onDownloadWithoutOpening`), "Fast Download" (`onFastDownload`), then
-"Move to Trash" (`onDeleteImmediately`, skipping the confirmation dialog --
-see the `AppModel.kt` note above). Double-click (`onDoubleTap`) fires the
-same `onOpen` as the menu's first item, matching zouk's own
-`onTapGesture(count: 2) { Task { await model.open(scan) } }`.
+### `DropdownMenu`, not `ContextMenuArea`/`ContextMenuItem`
+`ContextMenuArea`/`ContextMenuItem` (Compose Desktop's built-in right-click
+menu API) has no icon or separator support in its public API -- confirmed
+against the real published surface, `ContextMenuItem` is just a label +
+`onClick`, nothing else. zouk's real `.contextMenu` has an SF Symbol icon on
+each of its four items plus a `Divider()` ahead of the destructive "Move to
+Trash" item, so matching it meant replacing `ContextMenuArea` with a
+manually triggered `androidx.compose.material.DropdownMenu`/
+`DropdownMenuItem` instead: a `menuExpanded` boolean opened via
+`Modifier.onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary))`
+(the documented Compose Desktop pattern for a non-primary-button click,
+`@OptIn(ExperimentalFoundationApi::class)`) rather than `ContextMenuArea`'s
+declarative `items = { ... }` lambda. Icon mapping: `Icons.Filled.OpenInNew`
+(Download and Open), `.CloudDownload` (Download to…), `.FileDownload` (Fast
+Download), `.Delete` (Move to Trash) -- the first three needed
+`material-icons-extended` (see `build.gradle.kts`'s own note) since
+`material-icons-core` only bundles the ~50 most-common icons and none of
+those cover "download"/"open externally". Each `DropdownMenuItem`'s trailing
+lambda content lays out its own `Icon` + `Spacer(Modifier.width(8.dp))` +
+`Text`, since `DropdownMenuItem` (unlike `ContextMenuItem`) takes an actual
+Composable slot rather than a plain string label. A `Divider()` sits
+immediately before the "Move to Trash" item, matching zouk. Still matches
+zouk's real four-item order and behavior exactly: "Download and Open"
+(`onOpen`), "Download to…" (`onDownloadWithoutOpening`), "Fast Download"
+(`onFastDownload`), "Move to Trash" (`onDeleteImmediately`, skipping the
+confirmation dialog -- see the `AppModel.kt` note above). Double-click
+(`onDoubleTap`) still fires the same `onOpen` as the menu's first item,
+matching zouk's own `onTapGesture(count: 2) { Task { await model.open(scan)
+} }` -- unaffected by this swap, since it goes through `detectTapGestures`
+on the same `Column`, not through the menu itself.
+
+### `CircularIconButton`'s box/icon size: 28dp/intrinsic 24dp -> 24dp/18dp
+Asked for "a touch smaller" with no specific target given, so this landed on
+a modest trim rather than a drastic resize: the button's `Box` from 28dp to
+24dp, and its `Icon` from Material's intrinsic default (24dp, unset) to an
+explicit 18dp. Used for both the toolbar's refresh button and the footer's
+delete button, so both got smaller together. The footer's own
+`height(32.dp)` comment (previously citing "28dp icon" as that number's
+reason) was updated to say 24dp to match, rather than left stale.
 
 ### The `savingMessage` capsule is a sibling overlay, not inline in the footer
 Matches zouk's own `.overlay { ... }` modifier, which applies to the whole
