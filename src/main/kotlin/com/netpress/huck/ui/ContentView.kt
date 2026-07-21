@@ -1,6 +1,7 @@
 package com.netpress.huck.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import com.netpress.huck.AppModel
 import com.netpress.huck.ConnectionState
 import kotlinx.coroutines.CoroutineScope
@@ -9,13 +10,23 @@ import kotlinx.coroutines.launch
 // Ports zouk's ContentView (Sources/ZoukKit/ContentView.swift): branch on AppModel.state ==
 // .connecting first, then hasEverConnected, else the host entry screen. Named and shaped to
 // match the Swift original -- this is the root view, Main.kt just hosts the Window around it.
-// See docs/COWORK.md "Current status" for what's real (this branch, connect(), the scan list,
-// the toolbar host field) versus deferred (thumbnails, save/delete).
+// See docs/COWORK.md "Current status" for what's real versus still deferred.
 @Composable
 fun ContentView(
     model: AppModel,
     scope: CoroutineScope,
 ) {
+    // Ports zouk's AppModel.init auto-connect (Task { await connect() } when autoConnect &&
+    // !hostInput.isEmpty), moved here rather than into AppModel's constructor: AppModel never
+    // launches its own coroutines elsewhere (the UI always does via scope.launch { ... }), and
+    // AppModelSpec constructs AppModel directly expecting no side effects -- a constructor-fired
+    // connect() would make a real network call during those tests via the default clientFactory.
+    LaunchedEffect(Unit) {
+        if (model.hostInput.isNotEmpty()) {
+            model.connect()
+        }
+    }
+
     when {
         model.state == ConnectionState.Connecting -> ConnectingView()
 
