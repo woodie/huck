@@ -13,6 +13,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -496,41 +497,43 @@ private fun ScanThumbnailCell(
         }
 
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(onClick = {
+            ScanContextMenuItem(Icons.Filled.OpenInNew, "Download and Open") {
                 menuExpanded = false
                 onOpen()
-            }) {
-                Icon(Icons.Filled.OpenInNew, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Download and Open")
             }
-            DropdownMenuItem(onClick = {
+            ScanContextMenuItem(Icons.Filled.CloudDownload, "Download to…") {
                 menuExpanded = false
                 onDownloadWithoutOpening()
-            }) {
-                Icon(Icons.Filled.CloudDownload, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Download to…")
             }
-            DropdownMenuItem(onClick = {
+            ScanContextMenuItem(Icons.Filled.FileDownload, "Fast Download") {
                 menuExpanded = false
                 onFastDownload()
-            }) {
-                Icon(Icons.Filled.FileDownload, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Fast Download")
             }
             Divider()
             // Skips the confirmation dialog deliberately, matching zouk's own comment on this
             // exact menu item -- only the footer trash button confirms.
-            DropdownMenuItem(onClick = {
+            ScanContextMenuItem(Icons.Filled.Delete, "Move to Trash") {
                 menuExpanded = false
                 onDeleteImmediately()
-            }) {
-                Icon(Icons.Filled.Delete, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Move to Trash")
             }
         }
+    }
+}
+
+// Shrinks Material's default DropdownMenuItem sizing (~60% throughout) -- see docs/COMMENTS.md.
+@Composable
+private fun ScanContextMenuItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        onClick = onClick,
+        modifier = Modifier.height(28.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(label, style = MaterialTheme.typography.body2)
     }
 }

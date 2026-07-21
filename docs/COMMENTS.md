@@ -587,24 +587,51 @@ manually triggered `androidx.compose.material.DropdownMenu`/
 `Modifier.onClick(matcher = PointerMatcher.mouse(PointerButton.Secondary))`
 (the documented Compose Desktop pattern for a non-primary-button click,
 `@OptIn(ExperimentalFoundationApi::class)`) rather than `ContextMenuArea`'s
-declarative `items = { ... }` lambda. Icon mapping: `Icons.Filled.OpenInNew`
-(Download and Open), `.CloudDownload` (Download to…), `.FileDownload` (Fast
-Download), `.Delete` (Move to Trash) -- the first three needed
-`material-icons-extended` (see `build.gradle.kts`'s own note) since
-`material-icons-core` only bundles the ~50 most-common icons and none of
-those cover "download"/"open externally". Each `DropdownMenuItem`'s trailing
-lambda content lays out its own `Icon` + `Spacer(Modifier.width(8.dp))` +
-`Text`, since `DropdownMenuItem` (unlike `ContextMenuItem`) takes an actual
-Composable slot rather than a plain string label. A `Divider()` sits
-immediately before the "Move to Trash" item, matching zouk. Still matches
-zouk's real four-item order and behavior exactly: "Download and Open"
-(`onOpen`), "Download to…" (`onDownloadWithoutOpening`), "Fast Download"
-(`onFastDownload`), "Move to Trash" (`onDeleteImmediately`, skipping the
-confirmation dialog -- see the `AppModel.kt` note above). Double-click
-(`onDoubleTap`) still fires the same `onOpen` as the menu's first item,
-matching zouk's own `onTapGesture(count: 2) { Task { await model.open(scan)
-} }` -- unaffected by this swap, since it goes through `detectTapGestures`
-on the same `Column`, not through the menu itself.
+declarative `items = { ... }` lambda. `PointerMatcher` lives in
+`androidx.compose.foundation` (same package as the `onClick` modifier
+itself), not `androidx.compose.ui.input.pointer` alongside `PointerButton`
+-- a real `make check` on woodie's Mac caught this as an actual
+`Unresolved reference` compile failure the first time (an easy mistake
+since the two types are used together everywhere and read like they'd
+share a package), fixed by moving the import. Icon mapping:
+`Icons.Filled.OpenInNew` (Download and Open), `.CloudDownload` (Download
+to…), `.FileDownload` (Fast Download), `.Delete` (Move to Trash) -- the
+first three needed `material-icons-extended` (see `build.gradle.kts`'s own
+note) since `material-icons-core` only bundles the ~50 most-common icons
+and none of those cover "download"/"open externally". Each menu item's
+content lays out its own `Icon` + `Spacer` + `Text` via the
+`ScanContextMenuItem` helper below, since `DropdownMenuItem` (unlike
+`ContextMenuItem`) takes an actual Composable slot rather than a plain
+string label. A `Divider()` sits immediately before the "Move to Trash"
+item, matching zouk. Still matches zouk's real four-item order and behavior
+exactly: "Download and Open" (`onOpen`), "Download to…"
+(`onDownloadWithoutOpening`), "Fast Download" (`onFastDownload`), "Move to
+Trash" (`onDeleteImmediately`, skipping the confirmation dialog -- see the
+`AppModel.kt` note above). Double-click (`onDoubleTap`) still fires the
+same `onOpen` as the menu's first item, matching zouk's own
+`onTapGesture(count: 2) { Task { await model.open(scan) } }` -- unaffected
+by this swap, since it goes through `detectTapGestures` on the same
+`Column`, not through the menu itself.
+
+### `ScanContextMenuItem`, shrinking Material's default `DropdownMenuItem` to ~60%
+Confirmed too big on a real side-by-side screenshot next to zouk's compact
+native menu -- Material's default `DropdownMenuItem` is a 48dp-minimum-height
+row with 16dp horizontal content padding, an unset (~24dp intrinsic) icon,
+and `subtitle1` (16sp) text, all sized for a touch target rather than a
+small native desktop menu. The oversized look came from all of those
+together, not any single dimension, so all four got trimmed together to
+roughly 60% rather than picking one to fix: `Modifier.height(28.dp)`
+(overriding `DropdownMenuItem`'s internal `sizeIn(minHeight = 48.dp)` the
+same way `CircularIconButton`'s own comment already explains for
+`Button`/`IconButton` -- an explicit tighter external constraint wins over
+`defaultMinSize`/`sizeIn`, which only expand into whatever slack the
+incoming constraints still allow), `contentPadding =
+PaddingValues(horizontal = 10.dp)`, an explicit 15dp `Icon` size, a 5dp
+`Spacer`, and `MaterialTheme.typography.body2` (14sp) for the label text.
+Pulled into its own private composable (`icon`/`label`/`onClick`
+parameters) rather than repeating all five modifiers/params at each of the
+four call sites -- same reasoning as `CircularIconButton`'s own extraction
+below, shared by the toolbar and footer buttons.
 
 ### `CircularIconButton`'s box/icon size: 28dp/intrinsic 24dp -> 24dp/18dp
 Asked for "a touch smaller" with no specific target given, so this landed on
