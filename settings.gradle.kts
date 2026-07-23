@@ -4,15 +4,6 @@ pluginManagement {
         gradlePluginPortal()
         mavenCentral()
     }
-
-    // No published artifact for kotidy yet -- this is a Gradle composite
-    // build, not a version dependency, and specifically needs to be included
-    // from inside pluginManagement (not the main body below, unlike the
-    // plain includeBuild("../humane-kotlin") further down, which is a
-    // regular library dependency) since it supplies a plugin ID rather than
-    // a library. Requires kotidy checked out as a sibling directory
-    // (../kotidy relative to this file). See its own docs/COWORK.md.
-    includeBuild("../kotidy")
 }
 
 plugins {

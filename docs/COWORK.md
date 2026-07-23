@@ -53,6 +53,14 @@ Per `~/workspace/woodie/docs/COWORK.md`'s "Working on unfamiliar stacks."
   `path:` is relative to `$GITHUB_WORKSPACE` itself, not its parent, so
   both repos need explicit sibling subpaths (see
   `.github/workflows/windows-package.yml`).
+- **`build.gradle.kts`'s `id("com.netpress.kotidy")`** (the shared test-output
+  tree renderer -- see `~/workspace/kotidy`'s own `docs/COWORK.md`) used to
+  need the same sibling-directory treatment as `humane-kotlin` above, via
+  `pluginManagement { includeBuild("../kotidy") }`. `com.netpress.kotidy` is
+  now approved and live on the Gradle Plugin Portal, so it's pinned as a
+  normal versioned plugin (`id("com.netpress.kotidy") version "0.1.0"`,
+  resolved via `gradlePluginPortal()` in `settings.gradle.kts`) -- no sibling
+  checkout of `kotidy` needed anymore, unlike `humane-kotlin`.
 
 ## Not yet done
 
