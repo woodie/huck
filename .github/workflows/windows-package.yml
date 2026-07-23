@@ -27,34 +27,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Checked out to an explicit `huck` subpath, not $GITHUB_WORKSPACE's root
-      # -- see the sibling-checkout comment below for why.
-      - name: Check out huck
-        uses: actions/checkout@v4
-        with:
-          path: huck
-
-      # settings.gradle.kts's includeBuild("../humane-kotlin") needs this to
-      # land as a real sibling of huck's own checkout directory. The previous
-      # version of this workflow checked huck out to $GITHUB_WORKSPACE's root
-      # and humane-kotlin to `path: humane-kotlin` -- but actions/checkout's
-      # `path` is relative to $GITHUB_WORKSPACE itself, not its parent, so
-      # that actually landed humane-kotlin *inside* huck's own checkout
-      # ($GITHUB_WORKSPACE/humane-kotlin, a subdirectory of huck, not a
-      # sibling), leaving "../humane-kotlin" relative to huck pointing one
-      # level too high (confirmed by a real failed run: "Included build
-      # 'D:\a\huck\humane-kotlin' does not exist"). Giving huck itself an
-      # explicit `path: huck` fixes this the simple way: both repos are now
-      # plain subdirectories of $GITHUB_WORKSPACE, so they're true siblings
-      # of each other with no parent-relative path trick (e.g. `path:
-      # ../humane-kotlin`) needed -- that trick also requires
-      # actions/checkout's `allow_parent_path: true`, which isn't available
-      # on the v4 major version this workflow pins.
-      - name: Check out humane-kotlin as a sibling checkout
-        uses: actions/checkout@v4
-        with:
-          repository: woodie/humane-kotlin
-          path: humane-kotlin
+      # No sibling checkout of humane-kotlin needed anymore -- it's a real
+      # Maven Central dependency now (com.netpress:humane-kotlin:0.1.1 in
+      # build.gradle.kts), not a composite build, so a single plain checkout
+      # at $GITHUB_WORKSPACE's root is enough. See humane-kotlin's own
+      # docs/COWORK.md for the publish setup this depends on.
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
@@ -62,18 +40,13 @@ jobs:
           java-version: "17"
 
       - name: Package Windows installer
-        working-directory: huck
         run: .\gradlew.bat packageMsi
 
-      # Path is Compose Desktop's documented default output location for this
-      # task, prefixed with huck/ now that huck is checked out to that
-      # subpath -- not yet confirmed against a real run, since this workflow
-      # hasn't executed yet. Adjust if the actual artifact lands elsewhere.
       - name: Upload the .msi
         uses: actions/upload-artifact@v4
         with:
           name: huck-msi
-          path: huck/build/compose/binaries/main/msi/*.msi
+          path: build/compose/binaries/main/msi/*.msi
 
       # Only on a version tag (v0.2.0, etc.), not on every push to main or PR --
       # attaches the same .msi to a real GitHub Release instead of leaving it
@@ -90,5 +63,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: huck/build/compose/binaries/main/msi/*.msi
-          body_path: huck/docs/releases/${{ github.ref_name }}.md
+          files: build/compose/binaries/main/msi/*.msi
+          body_path: docs/releases/${{ github.ref_name }}.md

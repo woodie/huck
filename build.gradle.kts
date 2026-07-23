@@ -47,11 +47,11 @@ dependencies {
     // under this coordinate; the icon set itself hasn't changed since).
     implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
 
-    // Composite-build dependency (see settings.gradle.kts) -- Gradle substitutes
-    // this coordinate with the ../humane-kotlin project automatically because
-    // that build's own group:name (see its build.gradle.kts/settings.gradle.kts)
-    // match. No version needed for a composite-build substitution.
-    implementation("com.netpress:humane-kotlin")
+    // Published to Maven Central as of v0.1.1 (see humane-kotlin's own
+    // docs/COWORK.md for the publish setup) -- no longer a composite build,
+    // so this needs a real version pin now. Bump by hand whenever a new
+    // humane-kotlin release ships.
+    implementation("com.netpress:humane-kotlin:0.1.1")
 
     // AppModel's connect()/etc. are suspend functions, matching zouk's async
     // AppModel -- version matches next-caltrain-kotlin's pinned coroutines.

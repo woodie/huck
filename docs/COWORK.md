@@ -47,12 +47,17 @@ Per `~/workspace/woodie/docs/COWORK.md`'s "Working on unfamiliar stacks."
   `ktlintCheck`/`clean check` runs against the result, or formatting
   fixes land too late to matter (see the Makefile's own comments on
   `build`/`test`/`check`).
-- **`humane-kotlin` must exist as a sibling directory** (`../humane-kotlin`)
-  for local builds and in CI (`settings.gradle.kts`'s `includeBuild`) --
-  not a published artifact. In GitHub Actions, `actions/checkout`'s
-  `path:` is relative to `$GITHUB_WORKSPACE` itself, not its parent, so
-  both repos need explicit sibling subpaths (see
-  `.github/workflows/windows-package.yml`).
+- **`humane-kotlin` used to require a sibling checkout** (`../humane-kotlin`,
+  via `settings.gradle.kts`'s `includeBuild`) since it wasn't a published
+  artifact. Now that it's on Maven Central (`com.netpress:humane-kotlin`,
+  starting `v0.1.1`), `build.gradle.kts` pins a real version instead -- no
+  sibling checkout needed locally or in CI anymore (see
+  `.github/workflows/windows-package.yml`'s single plain checkout, and
+  humane-kotlin's own `docs/COWORK.md` for the publish setup this depends
+  on). Bump the pinned version by hand when a new humane-kotlin release
+  ships -- no lockfile to regenerate for a plain Kotlin/JVM
+  `implementation(...)` dependency the way Ruby/Go's real fetch-based
+  lockfiles need one.
 - **`build.gradle.kts`'s `id("com.netpress.kotidy")`** (the shared test-output
   tree renderer -- see `~/workspace/kotidy`'s own `docs/COWORK.md`) used to
   need the same sibling-directory treatment as `humane-kotlin` above, via
