@@ -1,5 +1,6 @@
 package com.netpress.huck
 
+import com.netpress.kwick.JustBeforeEachExtension
 import io.kotest.core.config.AbstractProjectConfig
 import io.kotest.core.spec.SpecExecutionOrder
 import io.kotest.core.test.TestCaseOrder
@@ -9,4 +10,8 @@ import io.kotest.core.test.TestCaseOrder
 object ProjectConfig : AbstractProjectConfig() {
     override val specExecutionOrder = SpecExecutionOrder.Lexicographic
     override val testCaseOrder = TestCaseOrder.Sequential
+
+    // Without this, justBeforeEach (ScanClientSpec.kt) is a silent no-op --
+    // see kwick's own README "Setup".
+    override fun extensions() = listOf(JustBeforeEachExtension)
 }

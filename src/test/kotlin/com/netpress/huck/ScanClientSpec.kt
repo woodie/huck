@@ -1,5 +1,6 @@
 package com.netpress.huck
 
+import com.netpress.kwick.justBeforeEach
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
@@ -12,13 +13,13 @@ import java.nio.file.Files
 
 // Ports zouk's ScanClientSpec.swift, enabled by the ScanHttpClient seam ScanHttpClient.kt adds
 // (matching zouk's own ScanHTTPClient protocol -- see that file's comments for why the shape
-// differs). fetchScans/cachedFile/delete/save all go through suspend fun ScanClient methods, so
-// each it wraps its own runTest and does its own setup inline, matching AppModelSpec.kt's
-// established pattern in this file rather than Kotest's beforeEach -- mixing beforeEach with
-// suspend setup needs a coroutine-test listener extension this project doesn't have configured.
-// uniqueDestination(for:in:) is a plain function, so its own describe block below uses real
-// beforeEach/afterEach instead, matching the account's usual "Test structure" convention where
-// there's no such constraint.
+// differs). fetchScans()/delete(_:) still do their own setup inline inside each it's own runTest
+// block -- zouk's own spec doesn't hoist those acts into justBeforeEach either, since each it
+// there asserts a single fact rather than sharing one result across several. cachedFile()/
+// save()/uniqueDestination() do hoist their act via kwick's justBeforeEach, matching zouk's real
+// justBeforeEach usage at those three call sites -- kwick's justBeforeEach takes a
+// suspend TestScope.() -> Unit block natively, so no separate coroutine-test listener extension
+// is needed the way kotidy's docs/FRAMEWORK.md once flagged as a gap (see kwick's issue #7).
 class ScanClientSpec :
     DescribeSpec({
         val name = "1779907271.pdf"
@@ -69,79 +70,76 @@ class ScanClientSpec :
             }
 
             describe("#cachedFile(for:in:)") {
+                lateinit var fakeHttp: FakeScanHttpClient
+                lateinit var client: ScanClient
+                lateinit var cacheDirectory: File
+                lateinit var local: File
+
+                beforeEach {
+                    fakeHttp = FakeScanHttpClient()
+                    client = ScanClient(baseUrl, fakeHttp)
+                    cacheDirectory = tempDirectory()
+                }
+                afterEach { cacheDirectory.deleteRecursively() }
+
+                justBeforeEach { local = client.cachedFile(scan, cacheDirectory) }
+
                 context("when the file isn't cached yet") {
-                    it("downloads from scan.path resolved against baseURL, saved under the scan's name") {
-                        runTest {
-                            val cacheDirectory = tempDirectory()
-                            try {
-                                var requestedUrl: URI? = null
-                                val bytes = "pdf bytes".toByteArray()
-                                val fakeHttp =
-                                    FakeScanHttpClient(downloadHandler = { url ->
-                                        requestedUrl = url
-                                        DownloadResult(200, tempFileContaining(bytes))
-                                    })
-                                val client = ScanClient(baseUrl, fakeHttp)
+                    val bytes = "pdf bytes".toByteArray()
+                    lateinit var requestedUrl: URI
 
-                                val local = client.cachedFile(scan, cacheDirectory)
-
-                                requestedUrl shouldBe URI("http://scans.example.com/download/$name")
-                                local shouldBe File(cacheDirectory, name)
-                                local.readBytes().toList() shouldBe bytes.toList()
-                            } finally {
-                                cacheDirectory.deleteRecursively()
-                            }
+                    beforeEach {
+                        fakeHttp.downloadHandler = { url ->
+                            requestedUrl = url
+                            DownloadResult(200, tempFileContaining(bytes))
                         }
+                    }
+
+                    it("downloads from scan.path resolved against baseURL") {
+                        requestedUrl shouldBe URI("http://scans.example.com/download/$name")
+                    }
+
+                    it("saves the downloaded bytes under the scan's name in cacheDirectory") {
+                        local shouldBe File(cacheDirectory, name)
+                        local.readBytes().toList() shouldBe bytes.toList()
                     }
                 }
 
                 context("when the file is already cached and its size matches scan.size") {
+                    // 7 bytes, matches scan.size -- cachedFile should trust the cache.
+                    val existingBytes = "is-here".toByteArray()
+
+                    beforeEach {
+                        File(cacheDirectory, name).writeBytes(existingBytes)
+                        // Tripwire: fails the test if the short-circuit logic ever regresses.
+                        fakeHttp.downloadHandler = { error("should not download") }
+                    }
+
                     it("returns the already-cached file without downloading again") {
-                        runTest {
-                            val cacheDirectory = tempDirectory()
-                            try {
-                                // 7 bytes, matches scan.size -- cachedFile should trust the cache.
-                                val existingBytes = "is-here".toByteArray()
-                                File(cacheDirectory, name).writeBytes(existingBytes)
-                                // Tripwire: fails the test if the short-circuit logic ever regresses.
-                                val fakeHttp = FakeScanHttpClient(downloadHandler = { error("should not download") })
-                                val client = ScanClient(baseUrl, fakeHttp)
-
-                                val local = client.cachedFile(scan, cacheDirectory)
-
-                                local.readBytes().toList() shouldBe existingBytes.toList()
-                            } finally {
-                                cacheDirectory.deleteRecursively()
-                            }
-                        }
+                        local.readBytes().toList() shouldBe existingBytes.toList()
                     }
                 }
 
                 context("when a same-named file is cached but its size doesn't match scan.size") {
                     // Regression test for the stale-cache bug ScanClient.cachedFile fixed.
-                    it("re-downloads from scan.path instead of trusting the stale cache, overwriting it") {
-                        runTest {
-                            val cacheDirectory = tempDirectory()
-                            try {
-                                val staleBytes = "stale, wrong file entirely".toByteArray()
-                                File(cacheDirectory, name).writeBytes(staleBytes)
-                                var requestedUrl: URI? = null
-                                val freshBytes = "pdf bytes".toByteArray()
-                                val fakeHttp =
-                                    FakeScanHttpClient(downloadHandler = { url ->
-                                        requestedUrl = url
-                                        DownloadResult(200, tempFileContaining(freshBytes))
-                                    })
-                                val client = ScanClient(baseUrl, fakeHttp)
+                    val staleBytes = "stale, wrong file entirely".toByteArray()
+                    val freshBytes = "pdf bytes".toByteArray()
+                    lateinit var requestedUrl: URI
 
-                                val local = client.cachedFile(scan, cacheDirectory)
-
-                                requestedUrl shouldBe URI("http://scans.example.com/download/$name")
-                                local.readBytes().toList() shouldBe freshBytes.toList()
-                            } finally {
-                                cacheDirectory.deleteRecursively()
-                            }
+                    beforeEach {
+                        File(cacheDirectory, name).writeBytes(staleBytes)
+                        fakeHttp.downloadHandler = { url ->
+                            requestedUrl = url
+                            DownloadResult(200, tempFileContaining(freshBytes))
                         }
+                    }
+
+                    it("re-downloads from scan.path instead of trusting the stale cache") {
+                        requestedUrl shouldBe URI("http://scans.example.com/download/$name")
+                    }
+
+                    it("overwrites the cached file with the freshly downloaded bytes") {
+                        local.readBytes().toList() shouldBe freshBytes.toList()
                     }
                 }
             }
@@ -180,61 +178,56 @@ class ScanClientSpec :
             }
 
             describe("#save(_:to:cacheDirectory:)") {
-                // Matches zouk's own setup: a fresh client/cacheDirectory/destination per it, not
-                // shared -- freshSetup() stands in for beforeEach here (see the class-level comment).
-                fun freshSetup(bytes: ByteArray): Triple<ScanClient, File, File> {
-                    val root = tempDirectory()
-                    val cacheDirectory = File(root, "cache")
+                val bytes = "pdf bytes".toByteArray()
+                lateinit var root: File
+                lateinit var client: ScanClient
+                lateinit var cacheDirectory: File
+                lateinit var destination: File
+                lateinit var saved: File
+
+                beforeEach {
+                    root = tempDirectory()
+                    cacheDirectory = File(root, "cache")
                     val destinationDirectory = File(root, "Downloads").also { it.mkdirs() }
-                    val destination = File(destinationDirectory, name)
+                    destination = File(destinationDirectory, name)
                     val fakeHttp = FakeScanHttpClient(downloadHandler = { DownloadResult(200, tempFileContaining(bytes)) })
-                    return Triple(ScanClient(baseUrl, fakeHttp), cacheDirectory, destination)
+                    client = ScanClient(baseUrl, fakeHttp)
                 }
+                afterEach { root.deleteRecursively() }
+
+                justBeforeEach { saved = client.save(scan, destination, cacheDirectory) }
 
                 context("when destination has no existing file") {
-                    it("returns destination and copies the cached scan's bytes there") {
-                        runTest {
-                            val bytes = "pdf bytes".toByteArray()
-                            val (client, cacheDirectory, destination) = freshSetup(bytes)
-                            try {
-                                val saved = client.save(scan, destination, cacheDirectory)
+                    it("returns destination") {
+                        saved shouldBe destination
+                    }
 
-                                saved shouldBe destination
-                                destination.readBytes().toList() shouldBe bytes.toList()
-                            } finally {
-                                destination.parentFile.parentFile.deleteRecursively()
-                            }
-                        }
+                    it("copies the cached scan's bytes to destination") {
+                        destination.readBytes().toList() shouldBe bytes.toList()
                     }
                 }
 
                 context("when destination already has a different file") {
-                    it("overwrites it with the cached scan's bytes") {
-                        runTest {
-                            val bytes = "pdf bytes".toByteArray()
-                            val (client, cacheDirectory, destination) = freshSetup(bytes)
-                            destination.writeBytes("stale".toByteArray())
-                            try {
-                                client.save(scan, destination, cacheDirectory)
+                    beforeEach { destination.writeBytes("stale".toByteArray()) }
 
-                                destination.readBytes().toList() shouldBe bytes.toList()
-                            } finally {
-                                destination.parentFile.parentFile.deleteRecursively()
-                            }
-                        }
+                    it("overwrites it with the cached scan's bytes") {
+                        destination.readBytes().toList() shouldBe bytes.toList()
                     }
                 }
             }
 
             describe("#uniqueDestination(for:in:)") {
                 lateinit var directory: File
+                lateinit var destination: File
 
                 beforeEach { directory = tempDirectory() }
                 afterEach { directory.deleteRecursively() }
 
+                justBeforeEach { destination = ScanClient.uniqueDestination("scan.pdf", directory) }
+
                 context("when nothing exists at that name yet") {
                     it("returns the name unchanged") {
-                        ScanClient.uniqueDestination("scan.pdf", directory) shouldBe File(directory, "scan.pdf")
+                        destination shouldBe File(directory, "scan.pdf")
                     }
                 }
 
@@ -242,14 +235,14 @@ class ScanClientSpec :
                     beforeEach { File(directory, "scan.pdf").writeBytes(ByteArray(0)) }
 
                     it("returns \"scan (1).pdf\"") {
-                        ScanClient.uniqueDestination("scan.pdf", directory) shouldBe File(directory, "scan (1).pdf")
+                        destination shouldBe File(directory, "scan (1).pdf")
                     }
 
                     context("and \"scan (1).pdf\" also already exists") {
                         beforeEach { File(directory, "scan (1).pdf").writeBytes(ByteArray(0)) }
 
                         it("returns \"scan (2).pdf\"") {
-                            ScanClient.uniqueDestination("scan.pdf", directory) shouldBe File(directory, "scan (2).pdf")
+                            destination shouldBe File(directory, "scan (2).pdf")
                         }
                     }
                 }

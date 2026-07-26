@@ -75,6 +75,8 @@ dependencies {
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
     testImplementation("io.kotest:kotest-assertions-core:5.9.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    // Published to Maven Central as of v0.1.1 -- matches next-caltrain-kotlin's own pin.
+    testImplementation("com.netpress:kwick:0.1.1")
 }
 
 compose.resources {
