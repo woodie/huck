@@ -1,5 +1,6 @@
 package com.netpress.huck
 
+import com.netpress.kwick.justBeforeEach
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -13,7 +14,13 @@ import java.util.prefs.Preferences
 // its own scoped Preferences node (not the shared user default node) so tests don't read or
 // write real state on the machine running them. runTest (kotlinx-coroutines-test) gives connect()
 // virtual time, so the 2-second minimum-connecting-duration floor doesn't actually slow the
-// suite down -- matching how zouk's own tests avoid a real 2-second sleep per example.
+// suite down -- matching how zouk's own tests avoid a real 2-second sleep per example. delete()'s
+// own describe block below is the one exception -- it hoists the act into kwick's justBeforeEach
+// (matching zouk's real justBeforeEach usage at that exact call site), which runs on Kotest's own
+// TestScope rather than kotlinx-coroutines-test's, so it doesn't get virtual time: the failure-path
+// test's delay(2_000) (AppModel.delete's catch block) is a real 2-second wait now, and connect()'s
+// own 2-second floor inside connectedModel() is real too. Accepted deliberately -- see kwick's
+// issue #7 -- rather than left inline like the rest of this file.
 class AppModelSpec :
     DescribeSpec({
         fun scopedPreferences(): Preferences = Preferences.userRoot().node("com/netpress/huck/test/${UUID.randomUUID()}")
@@ -192,32 +199,40 @@ class AppModelSpec :
                     }
                 }
 
+                // Matches zouk's AppModelSpec.swift's own justBeforeEach { await model.delete(scan) }
+                // (the first real suspend justBeforeEach usage ported to this file) -- each context
+                // below only wires up connectedModel()'s onDelete handler, the act itself lives once.
                 describe("delete()") {
+                    lateinit var model: AppModel
+                    lateinit var scan: ScanEntry
+
+                    justBeforeEach { model.delete(scan) }
+
                     context("when the server confirms the delete") {
+                        beforeEach {
+                            val (connected, connectedScan) = connectedModel()
+                            model = connected
+                            scan = connectedScan
+                            model.selectedScanID = scan.id
+                        }
+
                         it("removes the scan from scans and clears the selection") {
-                            runTest {
-                                val (model, scan) = connectedModel()
-                                model.selectedScanID = scan.id
-
-                                model.delete(scan)
-
-                                model.scans shouldBe emptyList()
-                                model.selectedScanID shouldBe null
-                            }
+                            model.scans shouldBe emptyList()
+                            model.selectedScanID shouldBe null
                         }
                     }
 
                     context("when the server rejects the delete") {
+                        beforeEach {
+                            val (connected, connectedScan) =
+                                connectedModel(onDelete = { throw ScanClientError("offline") })
+                            model = connected
+                            scan = connectedScan
+                        }
+
                         it("leaves scans untouched and clears the failure flash afterward") {
-                            runTest {
-                                val (model, scan) =
-                                    connectedModel(onDelete = { throw ScanClientError("offline") })
-
-                                model.delete(scan)
-
-                                model.scans shouldBe listOf(scan)
-                                model.savingMessage shouldBe null
-                            }
+                            model.scans shouldBe listOf(scan)
+                            model.savingMessage shouldBe null
                         }
                     }
                 }
