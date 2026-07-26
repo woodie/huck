@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # kwick has no published artifact yet -- settings.gradle.kts's
+      # includeBuild("../kwick") needs it checked out as a real sibling
+      # directory. actions/checkout@v4 refuses a `path` outside
+      # $GITHUB_WORKSPACE ("Repository path ... is not under ..."), so this
+      # checks out into a subdirectory first, then moves it up to the real
+      # sibling location. Drop both steps once kwick ships a real Maven
+      # Central release and build.gradle.kts pins a version instead. Matches
+      # next-caltrain-kotlin's own CI.yml, which hit this same gap first.
+      - name: Checkout kwick
+        uses: actions/checkout@v4
+        with:
+          repository: woodie/kwick
+          path: kwick-checkout
+
+      - name: Move kwick to a sibling directory
+        run: mv kwick-checkout ../kwick
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # Matches build.gradle.kts's jvmToolchain(17) and windows-package.yml's own pin.
+          java-version: "17"
+
+      - name: Run tests
+        run: ./gradlew clean test
