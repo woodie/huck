@@ -13,23 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # kwick has no published artifact yet -- settings.gradle.kts's
-      # includeBuild("../kwick") needs it checked out as a real sibling
-      # directory. actions/checkout@v4 refuses a `path` outside
-      # $GITHUB_WORKSPACE ("Repository path ... is not under ..."), so this
-      # checks out into a subdirectory first, then moves it up to the real
-      # sibling location. Drop both steps once kwick ships a real Maven
-      # Central release and build.gradle.kts pins a version instead. Matches
-      # next-caltrain-kotlin's own CI.yml, which hit this same gap first.
-      - name: Checkout kwick
-        uses: actions/checkout@v4
-        with:
-          repository: woodie/kwick
-          path: kwick-checkout
-
-      - name: Move kwick to a sibling directory
-        run: mv kwick-checkout ../kwick
-
+      # No sibling checkout of kwick needed anymore -- it's a real Maven
+      # Central dependency now (com.netpress:kwick:0.1.2 in
+      # build.gradle.kts), not a composite build. See kwick's own
+      # docs/COWORK.md for the publish setup this depends on.
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
