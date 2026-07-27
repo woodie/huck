@@ -34,6 +34,25 @@ jobs:
       # docs/COWORK.md for the publish setup this depends on.
       - uses: actions/checkout@v4
 
+      # kwick has no published artifact yet -- settings.gradle.kts's
+      # includeBuild("../kwick") is evaluated for every Gradle invocation
+      # regardless of which task runs, packageMsi included, so this sibling
+      # checkout is needed here too, not just in CI.yml's test job. Same
+      # checkout-into-a-subdirectory-then-move trick as CI.yml (actions/
+      # checkout@v4 refuses a `path` outside $GITHUB_WORKSPACE). `shell: bash`
+      # on the move step since windows-latest defaults to PowerShell, but
+      # Git Bash (and therefore plain `mv`) is preinstalled on GitHub's
+      # Windows runners.
+      - name: Checkout kwick
+        uses: actions/checkout@v4
+        with:
+          repository: woodie/kwick
+          path: kwick-checkout
+
+      - name: Move kwick to a sibling directory
+        shell: bash
+        run: mv kwick-checkout ../kwick
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
