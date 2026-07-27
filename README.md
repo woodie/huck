@@ -59,7 +59,5 @@ The `.msi` isn't code-signed yet, so Windows SmartScreen may show an
 "Unknown publisher" warning on first run -- click **More info** then
 **Run anyway** to continue.
 
-### macOS
-
-Use [`zouk`](https://github.com/woodie/zouk) instead -- the native Swift
-version of this same app.
+Running macOS? Use [`zouk`](https://github.com/woodie/zouk)
+instead -- the native Swift version of this same app.
