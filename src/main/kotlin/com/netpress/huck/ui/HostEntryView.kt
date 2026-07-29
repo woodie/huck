@@ -57,6 +57,7 @@ fun HostEntryView(
             onValueChange = onHostInputChange,
             modifier = Modifier.width(280.dp),
             textAlign = TextAlign.Center,
+            placeholder = "Hostname or IP address",
             onSubmit = { if (hostInput.isNotBlank()) onConnect() },
         )
 

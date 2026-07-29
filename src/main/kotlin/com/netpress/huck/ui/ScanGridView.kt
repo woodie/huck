@@ -134,6 +134,7 @@ fun ScanGridView(
                     value = hostInput,
                     onValueChange = onHostInputChange,
                     modifier = Modifier.weight(1f),
+                    placeholder = "Hostname or IP address",
                     onSubmit = onSubmitHost,
                 )
             }

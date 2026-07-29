@@ -1,10 +1,13 @@
 package com.netpress.huck.ui
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
@@ -35,12 +38,15 @@ import androidx.compose.ui.unit.sp
 //
 // textAlign defaults to Start (a toolbar/URL-bar field reads left to right); HostEntryView
 // passes Center to match zouk's centered host field on that screen, confirmed on a real run.
+//
+// placeholder is drawn manually via decorationBox, BasicTextField's own hint-text seam.
 @Composable
 fun HostTextField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     textAlign: TextAlign = TextAlign.Start,
+    placeholder: String? = null,
     onSubmit: (() -> Unit)? = null,
 ) {
     var fieldModifier =
@@ -72,5 +78,22 @@ fun HostTextField(
             ),
         cursorBrush = SolidColor(MaterialTheme.colors.onSurface),
         modifier = fieldModifier,
+        decorationBox = { innerTextField ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                if (value.isEmpty() && placeholder != null) {
+                    Text(
+                        placeholder,
+                        style =
+                            MaterialTheme.typography.body1.copy(
+                                color = MaterialTheme.colors.onSurface.copy(alpha = 0.4f),
+                                textAlign = textAlign,
+                                fontSize = 14.sp,
+                            ),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                innerTextField()
+            }
+        },
     )
 }
