@@ -1,64 +1,88 @@
 package com.netpress.huck
 
 import io.kotest.core.spec.style.DescribeSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.beNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import java.time.Instant
 
+// Ports zouk's ScanEntrySpec.swift's grouping (Decodable / id / #downloadedAt and
+// #formattedDate / #humanSize / #timeAgo(relativeTo:)) -- see docs/COMMENTS.md.
 class ScanEntrySpec :
     DescribeSpec({
         describe("ScanEntry") {
-            var time = ""
-            val subject = { ScanEntry(name = "scan.pdf", size = 79_992, time = time, path = "/files/scan.pdf") }
+            val name = "1779907271.pdf"
+            val size = 79_992L
+            val time = "2026-07-19T10:00:00Z"
+            val path = "/download/1779907271.pdf"
 
-            context("id") {
-                beforeEach { time = "2026-07-19T10:00:00Z" }
+            describe("Decodable") {
+                context("when decoding a server JSON listing") {
+                    it("decodes the name, size, time, and path fields") {
+                        val json = """[{"name":"$name","size":$size,"time":"$time","path":"$path"}]"""
 
-                it("is the scan's name, matching zouk's Identifiable conformance") {
-                    subject().id shouldBe "scan.pdf"
+                        val scans = Json.decodeFromString<List<ScanEntry>>(json)
+
+                        scans shouldHaveSize 1
+                        scans[0].name shouldBe name
+                        scans[0].size shouldBe size
+                        scans[0].path shouldBe path
+                        scans[0].downloadedAt.shouldNotBeNull()
+                    }
                 }
             }
 
-            context("humanSize") {
-                beforeEach { time = "2026-07-19T10:00:00Z" }
-
-                it("delegates to Humane.humanSize") {
-                    subject().humanSize shouldBe "80 KB"
+            describe("id") {
+                it("is the scan's name") {
+                    ScanEntry(name = name, size = size, time = time, path = path).id shouldBe name
                 }
             }
 
-            context("with a valid ISO-8601 time") {
-                beforeEach { time = "2026-07-19T10:00:00Z" }
+            describe("#downloadedAt and #formattedDate") {
+                context("with a valid timestamp") {
+                    it("are both non-null") {
+                        val scan = ScanEntry(name = name, size = size, time = time, path = path)
 
-                it("parses downloadedAt") {
-                    subject().downloadedAt shouldBe Instant.parse("2026-07-19T10:00:00Z")
+                        scan.downloadedAt.shouldNotBeNull()
+                        scan.formattedDate.shouldNotBeNull()
+                    }
                 }
 
-                it("formats a non-null formattedDate") {
-                    subject().formattedDate.shouldNotBeNull()
-                }
+                context("with an unparsable timestamp") {
+                    it("are both null") {
+                        val scan = ScanEntry(name = name, size = size, time = "invalid", path = path)
 
-                it("reports timeAgo relative to a given instant") {
-                    val relativeTo = Instant.parse("2026-07-19T10:05:00Z")
-                    subject().timeAgo(relativeTo) shouldBe "5 minutes ago"
+                        scan.downloadedAt should beNull()
+                        scan.formattedDate should beNull()
+                    }
                 }
             }
 
-            context("with an unparseable time") {
-                beforeEach { time = "not-a-timestamp" }
+            describe("#humanSize") {
+                it("formats as \"80 KB\"") {
+                    ScanEntry(name = name, size = size, time = time, path = path).humanSize shouldBe "80 KB"
+                }
+            }
 
-                it("has a null downloadedAt") {
-                    subject().downloadedAt should beNull()
+            describe("#timeAgo(relativeTo:)") {
+                context("with a valid timestamp") {
+                    it("returns \"5 minutes ago\" for a 5-minute gap") {
+                        val scan = ScanEntry(name = name, size = size, time = time, path = path)
+
+                        scan.timeAgo(Instant.parse("2026-07-19T10:05:00Z")) shouldBe "5 minutes ago"
+                    }
                 }
 
-                it("has a null formattedDate") {
-                    subject().formattedDate should beNull()
-                }
+                context("with an unparsable timestamp") {
+                    it("falls back to the whenNil text instead of requiring the caller to guard") {
+                        val scan = ScanEntry(name = name, size = size, time = "invalid", path = path)
 
-                it("falls back to the whenNil wording for timeAgo") {
-                    subject().timeAgo(Instant.now()) shouldBe "an unknown time"
+                        scan.timeAgo(Instant.now()) shouldBe "an unknown time"
+                    }
                 }
             }
         }

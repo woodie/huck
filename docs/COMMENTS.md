@@ -366,6 +366,18 @@ A toolbar/URL-bar field (`ScanGridView`) reads left to right; zouk's actual
 `HostEntryView` centers its host field, confirmed on a real run comparing
 against zouk's own screenshots.
 
+### `placeholder`, drawn via `decorationBox`
+Zouk's real `TextField("Hostname or IP address", text: ...)` takes its hint
+text as a first-class initializer argument that SwiftUI shows and hides
+automatically. `BasicTextField` has no such parameter, so the hint has to be
+built by hand: `decorationBox` wraps `innerTextField()` in a `Box`, and a
+plain `Text` (same style as the real input, 40%-opacity `onSurface`) is drawn
+underneath it only while `value.isEmpty()` -- it disappears the instant a
+character is typed, the same as a native placeholder, and never touches the
+real `value`. Both `HostEntryView` and `ScanGridView`'s toolbar field pass
+`"Hostname or IP address"`, matching zouk's identical placeholder text at
+both of its own `TextField` call sites.
+
 ### `fontSize = 14.sp`, vertical padding 8dp -> 6dp
 A follow-up real side-by-side screenshot showed the field still noticeably
 taller than zouk's and its text noticeably larger, even after switching off
@@ -680,3 +692,91 @@ Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
 macOS-only) aren't ported yet. Selection, delete, and the full
 save/open/download/context-menu flow are all real now -- see
 `docs/COWORK.md`'s "Not done yet".
+
+## src/test/kotlin/com/netpress/huck/AppModelSpec.kt
+
+### Reordered, `.baseUrlFrom()` first
+Brought in line with zouk's own `AppModelSpec.swift` after a real
+side-by-side comparison for the rspec-everywhere talk (see
+`docs/COWORK.md`): `.baseUrlFrom()` (renamed from a bare `describe("baseUrlFrom")`,
+matching the leading-dot-plus-parens convention `next-caltrain-kotlin`'s
+`CaltrainScheduleSpec.kt` already uses for a real Kotlin function) now
+leads the file, followed by "constructed with a previously saved host,"
+three `connect()` contexts, and a standalone `changeServer()` -- the exact
+order zouk's file was missing before this same pass added them there too.
+Added a fourth `.baseUrlFrom()` case ("when the input has surrounding
+whitespace and a port") that only existed on zouk's side before.
+
+### `describe("#toggle()")`/`#changeServer()`/`#requestDelete()`/`#delete()` now carry the `#` prefix
+Previously bare (`describe("toggle()")`, etc.) -- every other member-describe
+in this account (`ScanClientSpec.kt`'s `#fetchScans()`, `next-caltrain-kotlin`'s
+`#routes()`) already uses the `#` sigil zouk's own Quick specs use for the
+same purpose, so this file was the one inconsistent holdout. `#changeServer()`
+also gained a nested `context("with a scan selected")` (previously a single
+flattened `context("changeServer() with a scan selected")`), matching zouk's
+own `describe("#changeServer()") { context("with a scan selected") { ... } }`
+shape exactly.
+
+### `"when toggled once"` -> `"when toggled again"` nesting
+Was two sibling `it`s under one context; zouk nests "when toggled again" as
+its own child `context` under "when toggled once" instead. Restructured to
+match -- no behavior change, just matching the printed tree shape.
+
+### `context("with a savedMessage lingering from a previous open(_:)")` not ported here
+zouk's sibling test sets `model.savedMessage` directly, which its own
+`@Published public var savedMessage` allows. This port's `savedMessage`
+is `private set` on purpose (see `AppModel.kt`'s own comment on this file's
+tighter encapsulation compared to zouk's fully-public `@Published` vars) --
+reaching the same lingering-message state here would mean driving a real
+`fastDownload()`/save round-trip through `FakeScanFetching` instead of a
+direct assignment. Left as a documented, one-sided gap rather than loosening
+`savedMessage`'s setter just to satisfy spec parity.
+
+### `#delete()`'s rejected-delete test now checks `state`, matching zouk
+zouk's equivalent test already asserted `model.state` stays `.connected`
+through a failed delete, in addition to `scans`/`savingMessage` -- this
+file's version only checked the latter two. Added the same assertion
+(`model.state shouldBe ConnectionState.Connected`) and matched the wording
+exactly ("leaves scans and state untouched, and clears the failure flash
+afterward").
+
+## src/test/kotlin/com/netpress/huck/ScanEntrySpec.kt
+
+### Restructured to match zouk's grouping
+Previously grouped by scenario (`context("with a valid ISO-8601 time")`/
+`context("with an unparseable time")` each bundling `downloadedAt`/
+`formattedDate`/`timeAgo` together, plus a flat `context("id")`/`context("humanSize")`).
+zouk's `ScanEntrySpec.swift` groups by member instead (`describe("Decodable")`/
+`describe("id")`/`describe("#downloadedAt and #formattedDate")`/
+`describe("#humanSize")`/`describe("#timeAgo(relativeTo:)")`), each with its
+own `context("with a valid timestamp")`/`context("with an unparsable timestamp")`
+pair where relevant. Restructured to match, including the "id" -> "Decodable"
+addition below and the spelling fix ("unparseable" -> "unparsable", matching
+zouk's spelling exactly).
+
+### `describe("Decodable")`, new
+zouk already had a JSON-decoding test this file didn't; ported via
+`Json.decodeFromString<List<ScanEntry>>(json)`, the same `kotlinx.serialization`
+API `ScanClientSpec.kt` already uses on the encode side (`Json.encodeToString`).
+
+### Fixture values now shared with zouk's `ScanEntrySpec.swift`
+`name`/`size`/`path`/`time` are now identical source text to zouk's own
+fixture (`"1779907271.pdf"`, `79_992`, `"2026-07-19T10:00:00Z"`,
+`"/download/1779907271.pdf"`) rather than each file's own ad hoc values --
+`79_992` is the shared byte-count fixture `humane-kotlin`/`humane-swift`
+both already test explicitly as `"80 KB"` (see `HumanSizeSpec.kt`'s "with
+the shared 79992-byte fixture used by lambada scandalous"). `time` has to
+stay `Z`-suffixed on both sides regardless of what `ISO8601DateFormatter`
+alone could parse on zouk's side -- `Instant.parse` only accepts strict
+UTC ISO-8601, so an offset-suffixed fixture (zouk's original
+`"2026-06-25T10:30:00-07:00"`) can't be shared as-is.
+
+### `#humanSize`'s wording, `#timeAgo(relativeTo:)`'s exact assertion
+"delegates to Humane.humanSize" (an implementation detail) became
+"formats as \"80 KB\"" -- matching the exact wording `humane-kotlin`'s own
+`HumanSizeSpec.kt` already uses for this fixture, and the wording zouk's
+`ScanEntrySpec.swift` was upgraded to as part of this same pass. `timeAgo`'s
+`it` text now states the expected value in the description itself
+(`"returns \"5 minutes ago\" for a 5-minute gap"`), matching zouk's own
+newly-tightened equivalent rather than the vaguer "reports timeAgo relative
+to a given instant" this file had before.

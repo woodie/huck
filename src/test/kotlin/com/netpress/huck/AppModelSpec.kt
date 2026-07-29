@@ -14,18 +14,45 @@ import java.util.prefs.Preferences
 // its own scoped Preferences node (not the shared user default node) so tests don't read or
 // write real state on the machine running them. runTest (kotlinx-coroutines-test) gives connect()
 // virtual time, so the 2-second minimum-connecting-duration floor doesn't actually slow the
-// suite down -- matching how zouk's own tests avoid a real 2-second sleep per example. delete()'s
-// own describe block below is the one exception -- it hoists the act into kwick's justBeforeEach
-// (matching zouk's real justBeforeEach usage at that exact call site), which runs on Kotest's own
-// TestScope rather than kotlinx-coroutines-test's, so it doesn't get virtual time: the failure-path
-// test's delay(2_000) (AppModel.delete's catch block) is a real 2-second wait now, and connect()'s
-// own 2-second floor inside connectedModel() is real too. Accepted deliberately -- see kwick's
-// issue #7 -- rather than left inline like the rest of this file.
+// suite down -- zouk's own equivalent connect()-related contexts have no such virtual-time
+// mechanism (Swift/Quick has none), so those two pay a real ~2s each; see that file's own comment.
+// delete()'s own describe block below is the one exception here too -- it hoists the act into
+// kwick's justBeforeEach (matching zouk's real justBeforeEach usage at that exact call site),
+// which runs on Kotest's own TestScope rather than kotlinx-coroutines-test's, so it doesn't get
+// virtual time: the failure-path test's delay(2_000) (AppModel.delete's catch block) is a real
+// 2-second wait now, and connect()'s own 2-second floor inside connectedModel() is real too.
+// Accepted deliberately -- see kwick's issue #7 -- rather than left inline like the rest of this file.
 class AppModelSpec :
     DescribeSpec({
         fun scopedPreferences(): Preferences = Preferences.userRoot().node("com/netpress/huck/test/${UUID.randomUUID()}")
 
         describe("AppModel") {
+            describe(".baseUrlFrom()") {
+                context("when the input has no scheme") {
+                    it("prepends http://") {
+                        AppModel.baseUrlFrom("scans.example.com") shouldBe URI("http://scans.example.com")
+                    }
+                }
+
+                context("when the input already has an explicit scheme") {
+                    it("leaves it unchanged") {
+                        AppModel.baseUrlFrom("https://scans.example.com") shouldBe URI("https://scans.example.com")
+                    }
+                }
+
+                context("when the input has surrounding whitespace and a port") {
+                    it("trims the whitespace and keeps the port") {
+                        AppModel.baseUrlFrom("  10.0.1.111:8080  ") shouldBe URI("http://10.0.1.111:8080")
+                    }
+                }
+
+                context("when the input is blank") {
+                    it("returns null") {
+                        AppModel.baseUrlFrom("   ") shouldBe null
+                    }
+                }
+            }
+
             context("constructed with a previously saved host") {
                 it("reads hostInput back out of preferences") {
                     val preferences = scopedPreferences()
@@ -143,7 +170,14 @@ class AppModelSpec :
                     return model to scan
                 }
 
-                describe("toggle()") {
+                // zouk's sibling context ("with a savedMessage lingering from a previous
+                // open(_:)") isn't ported here -- it needs to set model.savedMessage directly,
+                // which zouk's version allows (a plain public var) but this port deliberately
+                // narrowed to a private setter (see connectedModel()'s own comment above on the
+                // same scans/public-var tradeoff). Reaching the same lingering-message state here
+                // would mean driving a real open()/fastDownload() save round-trip instead of a
+                // direct assignment -- a real, documented one-sided gap, not an oversight.
+                describe("#toggle()") {
                     context("when toggled once") {
                         it("selects the scan") {
                             runTest {
@@ -156,35 +190,39 @@ class AppModelSpec :
                             }
                         }
 
-                        it("deselects the scan when toggled again") {
-                            runTest {
-                                val (model, scan) = connectedModel()
-                                model.toggle(scan)
+                        context("when toggled again") {
+                            it("deselects the scan") {
+                                runTest {
+                                    val (model, scan) = connectedModel()
+                                    model.toggle(scan)
 
-                                model.toggle(scan)
+                                    model.toggle(scan)
 
-                                model.selectedScanID shouldBe null
-                                model.selectedScan shouldBe null
+                                    model.selectedScanID shouldBe null
+                                    model.selectedScan shouldBe null
+                                }
                             }
                         }
                     }
                 }
 
-                context("changeServer() with a scan selected") {
-                    it("clears the selection along with the scan list") {
-                        runTest {
-                            val (model, scan) = connectedModel()
-                            model.toggle(scan)
+                describe("#changeServer()") {
+                    context("with a scan selected") {
+                        it("clears the selection and the scan list") {
+                            runTest {
+                                val (model, scan) = connectedModel()
+                                model.toggle(scan)
 
-                            model.changeServer()
+                                model.changeServer()
 
-                            model.selectedScanID shouldBe null
-                            model.scans shouldBe emptyList()
+                                model.selectedScanID shouldBe null
+                                model.scans shouldBe emptyList()
+                            }
                         }
                     }
                 }
 
-                describe("requestDelete()") {
+                describe("#requestDelete()") {
                     // Only the footer trash button calls this; a real right-click "Move to
                     // Trash" (zouk's context menu) isn't ported yet, so nothing skips this.
                     it("selects the scan and arms pendingDelete for it") {
@@ -202,7 +240,7 @@ class AppModelSpec :
                 // Matches zouk's AppModelSpec.swift's own justBeforeEach { await model.delete(scan) }
                 // (the first real suspend justBeforeEach usage ported to this file) -- each context
                 // below only wires up connectedModel()'s onDelete handler, the act itself lives once.
-                describe("delete()") {
+                describe("#delete()") {
                     lateinit var model: AppModel
                     lateinit var scan: ScanEntry
 
@@ -230,30 +268,11 @@ class AppModelSpec :
                             scan = connectedScan
                         }
 
-                        it("leaves scans untouched and clears the failure flash afterward") {
+                        it("leaves scans and state untouched, and clears the failure flash afterward") {
                             model.scans shouldBe listOf(scan)
+                            model.state shouldBe ConnectionState.Connected
                             model.savingMessage shouldBe null
                         }
-                    }
-                }
-            }
-
-            describe("baseUrlFrom") {
-                context("a blank string") {
-                    it("returns null") {
-                        AppModel.baseUrlFrom("   ") shouldBe null
-                    }
-                }
-
-                context("a host with no scheme") {
-                    it("prepends http://") {
-                        AppModel.baseUrlFrom("scans.example.com") shouldBe URI("http://scans.example.com")
-                    }
-                }
-
-                context("a host that already has a scheme") {
-                    it("leaves it unchanged") {
-                        AppModel.baseUrlFrom("https://scans.example.com") shouldBe URI("https://scans.example.com")
                     }
                 }
             }
