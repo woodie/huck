@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.netpress"
-version = "0.4.0"
+version = "0.4.1"
 
 kotlin {
     jvmToolchain(17)
@@ -107,7 +107,7 @@ compose.desktop {
             // OS as well.
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
             packageName = "Huck"
-            packageVersion = "0.4.0"
+            packageVersion = "0.4.1"
 
             // jpackage's macOS bundler rejects a leading-zero major version -- see docs/COMMENTS.md.
             macOS {
