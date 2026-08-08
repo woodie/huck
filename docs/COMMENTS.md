@@ -337,6 +337,22 @@ a way to compile and check; `javax.imageio.ImageIO`'s built-in GIF reader is
 a sure thing from the JDK itself, at the cost of one extra
 `toComposeImageBitmap()` conversion step per frame.
 
+### `running_dog.gif`: golden retriever swapped for a hand-drawn wire-haired pointer
+Woodie hand-drew the new 8-frame gallop cycle as a single contact-sheet
+image (frames laid out 4x2 with the same poses/timing as zouk's original,
+drawn for reference). Sliced back into individual frames and reassembled
+into this file programmatically: connected-component analysis isolates
+each dog's ink strokes from the sheet's white background and stray "frame
+N" labels (keeping only the largest blob per region, so eyebrow/whisker
+details that render as separate ink islands don't get dropped), each
+frame cropped to a consistent scale and centered on its own bounding
+box -- matching zouk's own `RunningDog.gif`, whose 8 frames all center
+within a few px of the 480x480 canvas's midpoint rather than sitting on
+a fixed ground line -- then re-encoded to match the original's exact
+technical spec (480x480, transparent P-mode palette, 100ms/frame,
+infinite loop, disposal-restore) so `RunningDogView.kt`'s decoder needed
+no changes.
+
 ### `running_dog.gif` lives in `src/main/resources`, not `composeResources`
 Two independent reasons: Compose Resources' documented supported image
 formats are JPEG/PNG/BMP/WebP + Android vector XML -- GIF isn't one of them,
