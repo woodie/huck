@@ -145,6 +145,12 @@ compose.desktop {
             windows {
                 iconFile.set(project.file("icons/icon.ico"))
             }
+
+            // Without this, the packaged .app/.dmg fall back to Compose Multiplatform's
+            // generic default icon (a stylized "K" mark) instead of Huck's own -- see docs/COMMENTS.md.
+            macOS {
+                iconFile.set(project.file("icons/icon.icns"))
+            }
         }
     }
 }

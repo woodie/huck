@@ -76,17 +76,20 @@ only built for local dev testing here anyway (see "Msi is the one this repo
 actually cares about" below), so it just needs to satisfy jpackage, not
 track `version`/`packageVersion` 1:1.
 
-### `nativeDistributions { windows { iconFile.set(...) } }`
-Without an explicit icon, `jpackage` falls back to a generic default (a
-plain coffee-cup/Duke-style placeholder) for the installed `.exe`, Start
-Menu entry, and uninstaller listing on Windows -- not a build failure, just
-an unbranded result. `icons/icon.ico` is a multi-resolution icon (16
+### `nativeDistributions { windows { iconFile.set(...) } }` / `macOS { iconFile.set(...) }`
+Without an explicit icon, `jpackage` falls back to a generic default --
+a plain coffee-cup/Duke-style placeholder on Windows, Compose
+Multiplatform's own stylized "K" mark on macOS -- for the installed
+app, Start Menu/Dock entry, and (on Windows) the uninstaller listing.
+Not a build failure, just an unbranded result. `icons/icon.ico` (16
 through 256px, generated via `convert ... -define icon:auto-resize=...`)
-built from the same `small.png` already used by `AppIconImage.kt` for the
-in-app icon (`HostEntryView`'s 64dp usage) -- rather than a separately
-drawn asset, so the packaged app and the in-app icon actually match. No
-macOS-side `iconFile` yet (the `Dmg` target has the same generic-icon gap),
-since that wasn't asked for this pass.
+and `icons/icon.icns` (16 through 512px\@2x, generated directly via
+Pillow's `Image.save(..., "icons/icon.icns")` -- no `iconutil`/`.iconset`
+folder needed, Pillow writes a real multi-resolution `icns` container on
+its own) are both built from the same `small.png` already used by
+`AppIconImage.kt` for the in-app icon (`HostEntryView`'s 64dp usage),
+rather than separately drawn assets, so the packaged app and the in-app
+icon actually match on both platforms now.
 
 ### `includeAllModules = true`, after a real `NoClassDefFoundError` on the packaged .msi
 The installed v0.2.0 `.msi` crashed the instant `connect()` ran --
