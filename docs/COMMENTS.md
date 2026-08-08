@@ -353,6 +353,18 @@ technical spec (480x480, transparent P-mode palette, 100ms/frame,
 infinite loop, disposal-restore) so `RunningDogView.kt`'s decoder needed
 no changes.
 
+One frame (the crossed-front-legs pose) shipped with a stray opaque
+white triangle where the legs cross: the gap between them is fully
+enclosed by ink on every side, so it never touches the sheet's outer
+white background, and the first pass's connected-component pass merged
+it into the dog's own blob (8-connected, so a white pocket touching
+dark ink on all sides is "the same region" as the ink around it) rather
+than recognizing it as background. Fixed by excluding near-white pixels
+from a frame's foreground mask regardless of which blob they got swept
+into, not just background pixels reachable from the canvas border --
+any enclosed near-white gap stays transparent now, not just the ones
+touching the edge.
+
 ### `running_dog.gif` lives in `src/main/resources`, not `composeResources`
 Two independent reasons: Compose Resources' documented supported image
 formats are JPEG/PNG/BMP/WebP + Android vector XML -- GIF isn't one of them,
