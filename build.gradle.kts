@@ -109,6 +109,11 @@ compose.desktop {
             packageName = "Huck"
             packageVersion = "0.4.0"
 
+            // jpackage's macOS bundler rejects a leading-zero major version -- see docs/COMMENTS.md.
+            macOS {
+                packageVersion = "1.4.0"
+            }
+
             // jpackage builds the bundled app a real, jlink-trimmed JDK image, not
             // a full JRE -- by default that image only includes whatever modules
             // this Gradle plugin decides it needs, and nothing here declares that

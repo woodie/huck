@@ -63,6 +63,19 @@ directory on the `main` source set, so ktlint linted it too -- naming
 violations in JetBrains' own generated code that aren't ours to fix. Excluded
 via `ktlint { filter { exclude { it.file.path.contains("/generated/") } } }`.
 
+### `nativeDistributions { macOS { packageVersion = "1.4.0" } }`
+`./gradlew packageDistributionForCurrentOS` on macOS failed with "The first
+number in an app-version cannot be zero or negative" against the top-level
+`packageVersion = "0.4.0"` -- a jpackage/macOS-only constraint (the `.msi`
+target is fine with a `0.x.y` version; only `Dmg`/`Pkg` reject a leading-zero
+major). Per the Compose Multiplatform docs,
+`nativeDistributions.macOS.packageVersion` overrides the top-level value for
+macOS packages only, so this sets it to `"1.4.0"` (major shifted up by one,
+minor/patch kept) rather than bumping the real project version -- Dmg is
+only built for local dev testing here anyway (see "Msi is the one this repo
+actually cares about" below), so it just needs to satisfy jpackage, not
+track `version`/`packageVersion` 1:1.
+
 ### `nativeDistributions { windows { iconFile.set(...) } }`
 Without an explicit icon, `jpackage` falls back to a generic default (a
 plain coffee-cup/Duke-style placeholder) for the installed `.exe`, Start
