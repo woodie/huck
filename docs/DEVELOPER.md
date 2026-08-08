@@ -8,13 +8,12 @@ see [docs/COWORK.md](COWORK.md).
 
 JDK 17+ (needed for `jpackage`'s native distribution packaging -- JDK 11
 isn't enough). Only matters for building from source -- the packaged
-`.msi` bundles its own JDK, so end users installing that don't need one.
+`.msi`/`.dmg` bundles its own JDK, so end users installing those don't
+need one.
 
-[`humane-kotlin`](https://github.com/woodie/humane-kotlin) checked out as a
-sibling directory (`../humane-kotlin` relative to this repo) -- this repo
-depends on it via a Gradle composite build (`includeBuild("../humane-kotlin")`
-in `settings.gradle.kts`), not a published artifact, so it has to exist on
-disk to build at all.
+[`humane-kotlin`](https://github.com/woodie/humane-kotlin) is a plain
+Maven Central dependency (`com.netpress:humane-kotlin`, pinned in
+`build.gradle.kts`) -- no sibling checkout needed.
 
 ## Building
 
