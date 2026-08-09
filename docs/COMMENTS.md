@@ -81,18 +81,37 @@ directory on the `main` source set, so ktlint linted it too -- naming
 violations in JetBrains' own generated code that aren't ours to fix. Excluded
 via `ktlint { filter { exclude { it.file.path.contains("/generated/") } } }`.
 
-### `nativeDistributions { macOS { packageVersion = "1.4.0" } }`
+### `nativeDistributions { macOS { packageVersion = ... } }`
 `./gradlew packageDistributionForCurrentOS` on macOS failed with "The first
 number in an app-version cannot be zero or negative" against the top-level
 `packageVersion = "0.4.0"` -- a jpackage/macOS-only constraint (the `.msi`
 target is fine with a `0.x.y` version; only `Dmg`/`Pkg` reject a leading-zero
 major). Per the Compose Multiplatform docs,
 `nativeDistributions.macOS.packageVersion` overrides the top-level value for
-macOS packages only, so this sets it to `"1.4.0"` (major shifted up by one,
-minor/patch kept) rather than bumping the real project version -- Dmg is
-only built for local dev testing here anyway (see "Msi is the one this repo
-actually cares about" below), so it just needs to satisfy jpackage, not
-track `version`/`packageVersion` 1:1.
+macOS packages only, so this originally hardcoded it to `"1.4.0"` (major
+shifted up by one, minor/patch kept) -- fine while Dmg/Pkg were only built
+for local dev testing, since the exact version string didn't matter.
+
+Once the `.pkg` became a real, user-downloaded release artifact (#3), a
+hardcoded, never-updated `"1.4.0"` became a real, visible bug: the shipped
+filename and Info.plist version would silently drift from the real project
+version. Replaced with a formula --
+`"1." + version.toString().substringAfter(".")` (`0.5.0` -> `1.5.0`) -- so
+it tracks the real version automatically. The major digit staying
+cosmetically offset by one is a known, accepted tradeoff of dodging
+jpackage's `0.x` rejection without bumping the real project version past
+1.0 -- revisit if/when this repo's own version crosses that boundary for
+real, at which point the override (and this whole workaround) can go away.
+
+### `nativeDistributions { macOS { bundleID = "com.netpress.huck" } }`
+Never set until the first real attempt to run `notarizePkg` from zouk's
+signing pipeline (see `.github/workflows/macos-package.yml` below), which
+failed outright with "macOS settings error: bundleID is empty or null."
+Unsigned local `make package` builds never hit this -- Compose Desktop only
+enforces a real bundleID once `sign.set(true)` is on, since a signed `.app`
+needs an actual `CFBundleIdentifier` to sign against. `com.netpress.huck`
+matches this repo's own Kotlin package/group (`com.netpress`) in reverse-DNS
+form, same convention zouk's own `Resources/Info.plist` bundle ID follows.
 
 ### `nativeDistributions { windows { iconFile.set(...) } }` / `macOS { iconFile.set(...) }`
 Without an explicit icon, `jpackage` falls back to a generic default --
