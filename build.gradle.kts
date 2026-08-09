@@ -114,7 +114,13 @@ compose.desktop {
             // Info.plist version in sync with the real project version instead of a
             // stale hardcoded stand-in, now that the .pkg is a real release artifact
             // and not just local dev testing. See docs/COMMENTS.md.
+            //
+            // bundleID was never set here -- unsigned local `make package` builds
+            // tolerated that, but Compose Desktop's macOS signing rejects a
+            // missing/empty bundleID outright once sign.set(true) is on, since a
+            // signed .app needs a real CFBundleIdentifier. See docs/COMMENTS.md.
             macOS {
+                bundleID = "com.netpress.huck"
                 packageVersion = "1." + version.toString().substringAfter(".")
             }
 
