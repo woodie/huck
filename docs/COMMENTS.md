@@ -138,22 +138,40 @@ Compose Multiplatform projects.
 
 ## .github/workflows/macos-package.yml
 
-### Signing happens in zouk's repo, not here
-This job only builds an unsigned `.app` (`./gradlew createDistributable`)
-and attaches it to the release as a zip -- it never touches a Developer ID
-cert or notarization credential. Rather than duplicate zouk's eight
-signing/notary secrets into this repo too, the last step fires a
-`repository_dispatch` at `woodie/zouk` (which already holds those
-secrets), handing off the release tag and the unsigned zip's download
-URL. `zouk/.github/workflows/sign-huck-pkg.yml` does the actual
-signing/notarization/`.pkg`-building and uploads the result back onto
-this same release. `SIGNING_BRIDGE_TOKEN` is a single fine-grained PAT,
-scoped to just `woodie/huck` and `woodie/zouk` with Contents: Read and
-write on both -- present as a secret in both repos, since a secret from
-one repo isn't visible to Actions runs in another. Untested end-to-end as
-of this writing (no way to exercise real codesign/notarization from this
-account's usual sandbox-based dev loop) -- first real tag push is the
-actual test.
+### The real .pkg is built in zouk's repo, not here
+This job's own `build-check` only builds an unsigned `.app`
+(`./gradlew createDistributable`) as a fast smoke test on every push/PR --
+it never touches a Developer ID cert or notarization credential, and
+doesn't attach anything to a release. On a version tag, the
+`ask-zouk-to-build-and-sign` job instead fires a `repository_dispatch` at
+`woodie/zouk` with just the tag name and this repo's name -- zouk checks
+out *this repo's own source* at that tag and runs the real Gradle build
+itself, on a runner that already holds the Developer ID certs and notary
+credentials.
+
+This isn't just secret-sharing convenience -- it's the only approach that
+actually works. The first version of this pipeline built an unsigned
+`.app` here, uploaded it to zouk as a zip, and had zouk sign it
+externally with `codesign --deep`. That failed real notarization: `--deep`
+doesn't properly sign most nested dylibs, and one of Huck's native
+libraries (Skiko's `libskiko-macos-*.dylib`) ships bundled *inside a
+`.jar`*, which an external `codesign` call can't reach into at all.
+jpackage's own `--mac-sign` (wired up via Compose Desktop's
+`signing`/`notarization` DSL, driven from zouk's workflow via
+`-Pcompose.desktop.mac.*` Gradle properties -- no changes needed here in
+`build.gradle.kts` itself) runs *during* packaging, before/while jars are
+assembled, which is the only point in the pipeline that can sign
+jar-embedded content correctly. See `zouk/docs/COMMENTS.md` for the
+zouk-side details.
+
+`SIGNING_BRIDGE_TOKEN` is a single fine-grained PAT, scoped to just
+`woodie/huck` and `woodie/zouk` with Contents: Read and write on both --
+present as a secret in both repos, since a secret from one repo isn't
+visible to Actions runs in another. Both directions of this bridge
+actually need that write access: firing `repository_dispatch` at zouk
+requires Contents: write on zouk (confirmed against GitHub's own
+fine-grained PAT permission docs, not assumed), and uploading the signed
+`.pkg` back requires Contents: write on huck.
 
 ## src/main/kotlin/com/netpress/huck/Main.kt
 
