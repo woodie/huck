@@ -100,14 +100,13 @@ compose.desktop {
         mainClass = "com.netpress.huck.MainKt"
 
         nativeDistributions {
-            // Msi is the one this repo actually cares about -- see docs/COWORK.md
-            // for why producing it doesn't require touching real Windows hardware.
-            // Dmg is included too since local development happens on macOS, and
-            // "package for the OS I'm building on" needs a target format for that
-            // OS as well.
-            targetFormats(TargetFormat.Msi, TargetFormat.Dmg)
+            // Msi/Exe cover Windows; Dmg/Pkg cover macOS as an equally real target now,
+            // not just local dev testing -- see docs/COWORK.md.
+            targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Pkg)
             packageName = "Huck"
             packageVersion = "0.4.1"
+            // Hand-maintained, not computed -- see docs/COMMENTS.md.
+            copyright = "© 2026 John Woodell"
 
             // jpackage's macOS bundler rejects a leading-zero major version -- see docs/COMMENTS.md.
             macOS {

@@ -2,17 +2,23 @@ package com.netpress.huck
 
 import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.netpress.huck.resources.Res
 import com.netpress.huck.resources.small
+import com.netpress.huck.ui.AboutWindow
 import com.netpress.huck.ui.ContentView
 import org.jetbrains.compose.resources.painterResource
+import java.awt.Desktop
 import java.awt.Dimension
 
 // The JVM entry point -- Kotlin has no equivalent to Swift's @main App struct, so this file has
@@ -20,6 +26,19 @@ import java.awt.Dimension
 // the real root view and is named/shaped to match Sources/ZoukKit/ContentView.swift.
 fun main() =
     application {
+        var showAbout by remember { mutableStateOf(false) }
+
+        // macOS's app-menu "About Huck" item; unsupported on Windows, which has no equivalent
+        // system hook -- see docs/COMMENTS.md.
+        LaunchedEffect(Unit) {
+            if (Desktop.isDesktopSupported()) {
+                val desktop = Desktop.getDesktop()
+                if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
+                    desktop.setAboutHandler { showAbout = true }
+                }
+            }
+        }
+
         Window(
             onCloseRequest = ::exitApplication,
             // Matches zouk's real window title ("Zouk scan retriever") -- confirmed against a
@@ -39,11 +58,23 @@ fun main() =
                 window.minimumSize = Dimension(360, 310)
             }
 
+            // Windows has no system About menu the way macOS does -- this is that platform's
+            // entry point to the same dialog. Harmless, if redundant, on macOS too.
+            MenuBar {
+                Menu("Help") {
+                    Item("About Huck", onClick = { showAbout = true })
+                }
+            }
+
             val model = remember { AppModel() }
             val scope = rememberCoroutineScope()
 
             MaterialTheme {
                 ContentView(model = model, scope = scope)
             }
+        }
+
+        if (showAbout) {
+            AboutWindow(onCloseRequest = { showAbout = false })
         }
     }

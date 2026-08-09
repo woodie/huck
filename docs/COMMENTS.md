@@ -15,6 +15,24 @@ declared here as direct coordinates instead
 `org.jetbrains.compose.components:components-resources:1.11.0`), tracking
 the `org.jetbrains.compose` plugin version above.
 
+### `TargetFormat.Pkg` and `copyright`
+Added alongside `Msi`/`Dmg` once macOS became a real target, not just
+local dev testing (#3) -- Compose Multiplatform's jpackage wrapper
+supports `Pkg` directly, no hand-rolled `pkgbuild` Makefile target
+needed the way zouk's is. `copyright` is real installer/Finder-Get-Info
+metadata now too (#2).
+
+A first pass computed the year dynamically (`java.time.Year.now().value`),
+matching `AboutWindow.kt`'s equivalent string -- inline, that failed with
+`Unresolved reference 'time'` on a real `make run`, since the
+`kotlin("jvm")` plugin adds a `java { }` extension accessor on `Project`
+(for toolchain config) that shadows the top-level `java` package name
+inside this build script, so an unqualified `java.time...` reference
+resolves to that extension instead of the package. Rather than work
+around it with an import, settled on a plain hardcoded `"© 2026 John
+Woodell"` instead -- matching `AppInfo.kt`'s `APP_VERSION` and zouk's own
+`Resources/Info.plist`, both hand-bumped strings, not computed ones.
+
 ### ktlint's parameter-list wrapping and supertype placement
 ktlint's `function-signature` rule forces any function/constructor call with
 2+ parameters onto one-param-per-line once `ktlintFormat` runs, and its
@@ -160,6 +178,102 @@ real content. Bumped to 315 after a real side-by-side screenshot against
 zouk showed zouk's window consistently taller by roughly that margin, then
 corrected to 310 after a follow-up real screenshot -- width stays 360, only
 height moved either time.
+
+### `MenuBar`, but no `Menu`/`Item` imports
+`Menu` and `Item` failed with `Unresolved reference` on a real `make run`
+when imported directly (`import androidx.compose.ui.window.Menu`/`Item`) --
+unlike `MenuBar` itself, they're not top-level functions in that package,
+they're members of `MenuBarScope`/`MenuScope` (confirmed against Compose
+Multiplatform's real source), resolved implicitly on the receiver inside
+`MenuBar { Menu("Help") { Item(...) } }` the same way any other Kotlin
+receiver-scope call is -- no import possible or needed for either.
+
+### `Desktop.setAboutHandler` + a `MenuBar`, not a single trigger
+zouk's About panel is reached through macOS's automatic app-menu "About
+Zouk" item, which Kotlin/Compose has no equivalent of on Windows --
+there's no system menu convention there at all. `Desktop.setAboutHandler`
+covers macOS (guarded behind `isDesktopSupported`/`isSupported` the same
+defensive way `AppModel.kt`'s `Desktop.open` call already is elsewhere,
+since `Action.APP_ABOUT` isn't available on every platform); a `MenuBar`
+with a `Help > About Huck` item covers Windows, and works as a redundant
+second path on macOS too. Both set the same `showAbout` flag, which a
+sibling `Window(...)` call (see `AboutWindow.kt`) reads to conditionally
+show itself -- Compose Desktop's normal pattern for more than one window
+per `application { }`.
+
+## src/main/kotlin/com/netpress/huck/AppInfo.kt
+
+### `APP_VERSION`, a hand-maintained constant
+No jar-manifest/reflection-based single source of truth for the version
+string shown in `AboutWindow.kt` -- matches zouk's own `Resources/
+Info.plist` `CFBundleShortVersionString`, a manually bumped string, not
+derived automatically from anything either. `docs/DELIVERY.md`'s release
+checklist has to bump this alongside `build.gradle.kts`'s `version`.
+
+## src/main/kotlin/com/netpress/huck/ui/AboutWindow.kt
+
+### A standalone `Window`, not a dialog reusing the OS's own About panel
+zouk's About panel is `NSApplication.orderFrontStandardAboutPanel(options:)`
+-- the real system panel, just with `applicationName`/`credits` overridden
+away from the raw `CFBundleName`. There's no Compose/AWT equivalent that
+reuses the OS's own panel chrome with overridable text cross-platform, so
+this is a small from-scratch `Window` instead, styled to match (centered
+icon, bold name, version, copyright) rather than pixel-identical to
+either OS's native panel. The copyright year is a hardcoded `"2026"`,
+matching `build.gradle.kts`'s own `copyright` string and `AppInfo.kt`'s
+`APP_VERSION` -- a hand-bumped literal rather than `java.time.Year.now()`
+computed at runtime, since none of this repo's other version/date-ish
+strings auto-update either.
+
+### `Res.drawable.small`, not `large`
+A first pass used `large` at 96dp, matching `AppIconImage.kt`'s own
+comment anticipating that this file would need it. On a real run, `large`
+rendered visibly cropped/off-center (ears cut off, dog shifted) -- turns
+out `large.png` is 639x512, not square, so forcing it into a fixed
+96x96dp box crops it asymmetrically. `small.png` is a true 512x512
+square (confirmed via Pillow), already the source for the window/taskbar
+icon and both installer icons (`icons/icon.ico`/`icon.icns`), so it's
+what's used here too rather than a newly cropped/re-exported square
+version of `large.png`.
+
+### Title text: 18sp -> 14sp
+Read noticeably wider relative to the window than zouk's native panel's
+title on a real side-by-side (roughly 42% of window width vs zouk's
+33%) -- 14sp brings the proportion back in line, still bold, no other
+style change.
+
+### Icon size: 96dp -> 64dp -> 52dp
+96dp read too big on a real side-by-side against zouk's native About
+panel, whose icon is noticeably smaller relative to the window. 64dp
+(matching `HostEntryView`'s own existing icon usage) was still off:
+Woodie measured both apps' *original* About panel icons at 104x104 real
+screen pixels, then Huck's 64dp version at 128x128 -- a clean 2x Retina
+scale factor in both cases, meaning the real target dp size is 104 / 2 =
+52dp, not 64dp. Landed on 52dp, a dedicated About-panel-specific number
+rather than reusing `HostEntryView`'s.
+
+### `DpSize(300.dp, 240.dp)`, not `window.pack()`
+A first pass hardcoded `DpSize(320.dp, 280.dp)`, sized by eye. On a real
+run the actual window came out a different size than that (280x225, not
+320x280) with a visible gap of blank space below the copyright line once
+the icon shrank from 96dp to 64dp (see above) -- the fixed height didn't
+shrink to match the now shorter content. Tried dropping the fixed size
+and calling `window.pack()` (plain AWT's real "size me to my preferred
+content size" call, same `window` ambient `Main.kt` already uses for
+`minimumSize`) instead of re-guessing -- confirmed on a real run this
+doesn't work for a Compose window: `pack()` only ever sizes to a Swing
+component's `preferredSize`, and Compose's content is drawn to a single
+canvas that never participates in AWT's layout/preferred-size system, so
+`pack()` had nothing real to measure and left the window at its
+`WindowState` default (800x600-ish), with the actual content pinned
+top-left inside it. Back to an explicit `DpSize`, this time targeting
+zouk's real reported panel size (290x190) rather than a fresh guess --
+except 190/200dp turned out too short for real content once tried:
+confirmed on a real run, the copyright line clipped off the bottom
+entirely (four items -- 64dp icon, bold title, version, copyright --
+plus 8dp spacing and 24dp padding top/bottom add up to more than 200dp).
+Settled on 240dp instead, tall enough to fit all four lines without
+clipping.
 
 ## src/main/kotlin/com/netpress/huck/ScanClient.kt
 
@@ -439,8 +553,10 @@ compressing the surrounding layout.
 ### Defaults to `Res.drawable.small`, not `large`
 The shipped artwork (`large.png`/`small.png`) is sized for two different
 contexts; `small` is what `HostEntryView`'s 64dp usage actually needs.
-`large` is available for a bigger context (an About panel) that isn't built
-yet -- callers should pass it explicitly when they need it.
+`large` was meant for a bigger context (an About panel), but turned out
+non-square (639x512, vs `small`'s true 512x512) and crops oddly at a
+fixed size -- `AboutWindow.kt` uses `small` instead, at 52dp, so `large`
+has no real caller yet.
 
 ### No runtime fallback for a missing PNG
 Swift's version falls back to a system glyph if `AppIcon.png` fails to load
