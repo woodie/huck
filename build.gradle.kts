@@ -108,9 +108,14 @@ compose.desktop {
             // Hand-maintained, not computed -- see docs/COMMENTS.md.
             copyright = "© 2026 John Woodell"
 
-            // jpackage's macOS bundler rejects a leading-zero major version -- see docs/COMMENTS.md.
+            // jpackage's macOS bundler rejects a leading-zero major version, so this
+            // can't just be `version` directly -- prefixing a "1." onto the real
+            // minor.patch (0.5.0 -> 1.5.0) keeps the shipped .pkg's filename and
+            // Info.plist version in sync with the real project version instead of a
+            // stale hardcoded stand-in, now that the .pkg is a real release artifact
+            // and not just local dev testing. See docs/COMMENTS.md.
             macOS {
-                packageVersion = "1.4.0"
+                packageVersion = "1." + version.toString().substringAfter(".")
             }
 
             // jpackage builds the bundled app a real, jlink-trimmed JDK image, not
