@@ -113,17 +113,32 @@ needs an actual `CFBundleIdentifier` to sign against. `com.netpress.huck`
 matches this repo's own Kotlin package/group (`com.netpress`) in reverse-DNS
 form, same convention zouk's own `Resources/Info.plist` bundle ID follows.
 
-### `nativeDistributions { macOS { installationPath = "/Applications" } }`
-Never set until the first real `.pkg` install (v0.5.1): it put Huck at
-`/Applications/app/Huck.app` instead of `/Applications/Huck.app` like every
-other Mac installer. Per the Compose Multiplatform docs, `installationPath`
-("the absolute or relative path to the default installation directory") has
-no documented default -- whatever the plugin falls back to when it's unset
-clearly isn't the plain `/Applications` root jpackage otherwise uses by
-default, so this sets it explicitly. jpackage itself nests the `.app` by
-name under whatever `--install-dir` (this property's underlying flag)
-points at, matching zouk's own hand-rolled `pkgbuild --install-location /`
-+ `RootRelativeBundlePath "Applications/Huck.app"` convention.
+### `packagePkg`/`notarizePkg` are not used for real releases -- see zouk's `sign-huck-pkg.yml`
+v0.5.1's `.pkg` (built via Compose Desktop's own `notarizePkg` task) installed
+Huck at `/Applications/app/Huck.app` instead of `/Applications/Huck.app`.
+Setting `nativeDistributions.macOS.installationPath = "/Applications"` in
+v0.5.2 didn't fix it -- confirmed via `pkgutil --expand-full` +
+`lsbom` against the real built `.pkg`: the outer `Distribution`'s
+`install-location` was correctly `/Applications`, but the payload's own
+`Bom` stored every file under a literal `./app/Huck.app/...` prefix. That
+extra `app/` directory is baked into the package's payload construction
+itself by Compose Desktop's `packagePkg`/`notarizePkg` task, not controlled
+by `installationPath` at all -- a real bug in Compose Multiplatform 1.11.0
+(the current latest as of this writing), not a config mistake on this
+repo's end. No upstream report found matching it.
+
+Rather than chase a further DSL workaround for a task with a confirmed
+bug, zouk's `sign-huck-pkg.yml` stopped using `packagePkg`/`notarizePkg`
+entirely -- it still uses Compose Desktop's real signing DSL to build and
+sign the `.app` (`createDistributable` with `sign.set(true)`, which is
+what actually matters: jpackage's own `--mac-sign` correctly reaching a
+native library bundled inside a `.jar`, the thing no external `codesign`
+call could ever do), then hand-rolls the `.pkg` itself from that
+already-signed `.app` using the exact same `pkgbuild`/notarize/staple
+sequence zouk's own `Makefile`/`release.yml` already use successfully for
+zouk itself. `installationPath` was removed from this file since it's
+unused now -- the hand-rolled `pkgbuild --install-location /` step in
+zouk's workflow controls the real install path instead.
 
 ### `nativeDistributions { windows { iconFile.set(...) } }` / `macOS { iconFile.set(...) }`
 Without an explicit icon, `jpackage` falls back to a generic default --
