@@ -1,0 +1,79 @@
+name: macOS package
+
+# Builds a real, unsigned macOS .app on a real (ephemeral, GitHub-hosted)
+# macOS machine -- same rationale as windows-package.yml for Windows.
+# Signing/notarization/.pkg-building happens in zouk's repo instead of
+# here, via repository_dispatch -- zouk already holds the Developer ID
+# certs and notary credentials for this account, so this hands the
+# unsigned build off rather than duplicating those secrets a second time.
+# See docs/COMMENTS.md.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  package-app:
+    runs-on: macos-latest
+    # Needed for the release step below -- same reasoning as
+    # windows-package.yml's own permissions block.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build unsigned .app
+        run: ./gradlew createDistributable
+
+      # ditto (not plain zip) preserves the .app bundle's real structure/
+      # resource forks the way Finder/AirDrop would -- same tool zouk's
+      # own release.yml already uses for its notarization submission zip.
+      - name: Zip the .app for transfer
+        run: ditto -c -k --keepParent "build/compose/binaries/main/app/Huck.app" "huck-unsigned.zip"
+
+      - name: Upload the unsigned .app
+        uses: actions/upload-artifact@v4
+        with:
+          name: huck-unsigned-app
+          path: huck-unsigned.zip
+
+      # Only on a version tag, not every push to main or PR -- same
+      # reasoning as windows-package.yml's own tag-only release step. This
+      # has to land before the dispatch below: zouk's job downloads the zip
+      # from this release's asset URL, so the asset needs to actually exist
+      # first.
+      - name: Attach the unsigned .app to a GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: huck-unsigned.zip
+          body_path: docs/releases/${{ github.ref_name }}.md
+
+      # Fires a repository_dispatch at zouk instead of signing here --
+      # SIGNING_BRIDGE_TOKEN is a fine-grained PAT scoped to just this repo
+      # and zouk, with Contents: Read and write on both, so it can both
+      # trigger this dispatch and (from zouk's side) upload the signed
+      # .pkg back onto this same release. See docs/COMMENTS.md.
+      - name: Ask zouk to sign and attach the .pkg
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.SIGNING_BRIDGE_TOKEN }}
+        run: |
+          zip_url="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/huck-unsigned.zip"
+          gh api repos/woodie/zouk/dispatches --input - <<EOF
+          {
+            "event_type": "sign-huck-pkg",
+            "client_payload": {
+              "tag": "${{ github.ref_name }}",
+              "zip_url": "$zip_url",
+              "repo": "${{ github.repository }}"
+            }
+          }
+          EOF
