@@ -136,6 +136,25 @@ lowerCamelCase functions. ktlint's `function-naming` rule doesn't know this
 by default; the `.editorconfig` property is the documented fix for ktlint +
 Compose Multiplatform projects.
 
+## .github/workflows/macos-package.yml
+
+### Signing happens in zouk's repo, not here
+This job only builds an unsigned `.app` (`./gradlew createDistributable`)
+and attaches it to the release as a zip -- it never touches a Developer ID
+cert or notarization credential. Rather than duplicate zouk's eight
+signing/notary secrets into this repo too, the last step fires a
+`repository_dispatch` at `woodie/zouk` (which already holds those
+secrets), handing off the release tag and the unsigned zip's download
+URL. `zouk/.github/workflows/sign-huck-pkg.yml` does the actual
+signing/notarization/`.pkg`-building and uploads the result back onto
+this same release. `SIGNING_BRIDGE_TOKEN` is a single fine-grained PAT,
+scoped to just `woodie/huck` and `woodie/zouk` with Contents: Read and
+write on both -- present as a secret in both repos, since a secret from
+one repo isn't visible to Actions runs in another. Untested end-to-end as
+of this writing (no way to exercise real codesign/notarization from this
+account's usual sandbox-based dev loop) -- first real tag push is the
+actual test.
+
 ## src/main/kotlin/com/netpress/huck/Main.kt
 
 ### Expression-body `fun main()`
