@@ -113,6 +113,18 @@ needs an actual `CFBundleIdentifier` to sign against. `com.netpress.huck`
 matches this repo's own Kotlin package/group (`com.netpress`) in reverse-DNS
 form, same convention zouk's own `Resources/Info.plist` bundle ID follows.
 
+### `nativeDistributions { macOS { installationPath = "/Applications" } }`
+Never set until the first real `.pkg` install (v0.5.1): it put Huck at
+`/Applications/app/Huck.app` instead of `/Applications/Huck.app` like every
+other Mac installer. Per the Compose Multiplatform docs, `installationPath`
+("the absolute or relative path to the default installation directory") has
+no documented default -- whatever the plugin falls back to when it's unset
+clearly isn't the plain `/Applications` root jpackage otherwise uses by
+default, so this sets it explicitly. jpackage itself nests the `.app` by
+name under whatever `--install-dir` (this property's underlying flag)
+points at, matching zouk's own hand-rolled `pkgbuild --install-location /`
++ `RootRelativeBundlePath "Applications/Huck.app"` convention.
+
 ### `nativeDistributions { windows { iconFile.set(...) } }` / `macOS { iconFile.set(...) }`
 Without an explicit icon, `jpackage` falls back to a generic default --
 a plain coffee-cup/Duke-style placeholder on Windows, Compose

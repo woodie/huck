@@ -122,6 +122,11 @@ compose.desktop {
             macOS {
                 bundleID = "com.netpress.huck"
                 packageVersion = "1." + version.toString().substringAfter(".")
+                // Never set, so the plugin fell back to some relative default
+                // (confirmed on a real v0.5.1 install: /Applications/app/Huck.app,
+                // not /Applications/Huck.app like every other Mac installer) -- see
+                // docs/COMMENTS.md.
+                installationPath = "/Applications"
             }
 
             // jpackage builds the bundled app a real, jlink-trimmed JDK image, not
