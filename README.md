@@ -1,7 +1,8 @@
 # Huck scan retriever
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF.svg?logo=kotlin&logoColor=white)](build.gradle.kts)
-[![CI](https://github.com/woodie/huck/actions/workflows/windows-package.yml/badge.svg)](https://github.com/woodie/huck/actions/workflows/windows-package.yml)
+[![Windows package](https://github.com/woodie/huck/actions/workflows/windows-package.yml/badge.svg)](https://github.com/woodie/huck/actions/workflows/windows-package.yml)
+[![macOS package](https://github.com/woodie/huck/actions/workflows/macos-package.yml/badge.svg)](https://github.com/woodie/huck/actions/workflows/macos-package.yml)
 [![Release](https://img.shields.io/github/v/release/woodie/huck.svg)](https://github.com/woodie/huck/releases/latest)
 [![License](https://img.shields.io/github/license/woodie/huck.svg)](LICENSE)
 
@@ -15,7 +16,7 @@ Finally, serving files with Samba can work but it can be slow and awkward to use
 
 <img align="left" width="128" src="docs/art_smaller.png">
 
-Fear not, now we have the Huck scan retriever for Windows.
+Fear not, now we have the Huck scan retriever for Windows and macOS.
 This minimal Kotlin/Compose Desktop app is just what we need for browsing and
 downloading scans through [lambada](https://github.com/woodie/lambada)
 (created with Go) or [scandalous](https://github.com/woodie/scandalous)
@@ -59,5 +60,15 @@ The `.msi` isn't code-signed yet, so Windows SmartScreen may show an
 "Unknown publisher" warning on first run -- click **More info** then
 **Run anyway** to continue.
 
-Running macOS? Use [`zouk`](https://github.com/woodie/zouk)
-instead -- the native Swift version of this same app.
+### macOS
+
+Grab the latest `.pkg` from the
+[Releases page](https://github.com/woodie/huck/releases/latest) and
+double-click it -- Next, Next, Done, like any other Mac installer. The
+`.pkg` is signed and notarized, so it installs and launches with no
+Gatekeeper warning -- just the routine "downloaded from the Internet"
+notice macOS shows on any first launch, with a normal Open button.
+
+Want a fully native macOS app instead? Try
+[`zouk`](https://github.com/woodie/zouk) -- the original Swift version
+of this same app, macOS-only.
