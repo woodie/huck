@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "com.netpress"
-version = "0.5.2"
+version = "0.5.3"
 
 kotlin {
     jvmToolchain(17)
@@ -104,7 +104,7 @@ compose.desktop {
             // not just local dev testing -- see docs/COWORK.md.
             targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Pkg)
             packageName = "Huck"
-            packageVersion = "0.5.2"
+            packageVersion = "0.5.3"
             // Hand-maintained, not computed -- see docs/COMMENTS.md.
             copyright = "© 2026 John Woodell"
 
