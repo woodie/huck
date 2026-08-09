@@ -15,6 +15,24 @@ declared here as direct coordinates instead
 `org.jetbrains.compose.components:components-resources:1.11.0`), tracking
 the `org.jetbrains.compose` plugin version above.
 
+### `TargetFormat.Pkg` and `copyright`
+Added alongside `Msi`/`Dmg` once macOS became a real target, not just
+local dev testing (#3) -- Compose Multiplatform's jpackage wrapper
+supports `Pkg` directly, no hand-rolled `pkgbuild` Makefile target
+needed the way zouk's is. `copyright` is real installer/Finder-Get-Info
+metadata now too (#2).
+
+A first pass computed the year dynamically (`java.time.Year.now().value`),
+matching `AboutWindow.kt`'s equivalent string -- inline, that failed with
+`Unresolved reference 'time'` on a real `make run`, since the
+`kotlin("jvm")` plugin adds a `java { }` extension accessor on `Project`
+(for toolchain config) that shadows the top-level `java` package name
+inside this build script, so an unqualified `java.time...` reference
+resolves to that extension instead of the package. Rather than work
+around it with an import, settled on a plain hardcoded `"© 2026 John
+Woodell"` instead -- matching `AppInfo.kt`'s `APP_VERSION` and zouk's own
+`Resources/Info.plist`, both hand-bumped strings, not computed ones.
+
 ### ktlint's parameter-list wrapping and supertype placement
 ktlint's `function-signature` rule forces any function/constructor call with
 2+ parameters onto one-param-per-line once `ktlintFormat` runs, and its
