@@ -41,10 +41,11 @@ fun main() =
 
         Window(
             onCloseRequest = ::exitApplication,
-            // Matches zouk's real window title ("Zouk scan retriever") -- confirmed against a
-            // real screenshot comparison. Set once here, not per-screen: Window's title doesn't
-            // change as ContentView branches between HostEntryView/ConnectingView/ScanGridView.
-            title = "Huck scan retriever",
+            // Matches zouk's real window title (AppInfo.fullName, "Zouk scan retriever") --
+            // confirmed against a real screenshot comparison. Set once here, not per-screen:
+            // Window's title doesn't change as ContentView branches between
+            // HostEntryView/ConnectingView/ScanGridView.
+            title = APP_FULL_NAME,
             state = rememberWindowState(size = DpSize(360.dp, 310.dp)),
             // Without this, AWT/Swing (what Window is built on) falls back to the generic Java
             // coffee-cup icon for the title bar and Windows taskbar -- confirmed on a real
@@ -59,10 +60,14 @@ fun main() =
             }
 
             // Windows has no system About menu the way macOS does -- this is that platform's
-            // entry point to the same dialog. Harmless, if redundant, on macOS too.
+            // entry point to the same dialog. Harmless, if redundant, on macOS too. Label stays
+            // short (APP_SHORT_NAME) to match the real macOS app-menu's "About Huck"/"Hide
+            // Huck"/"Quit Huck" (all driven by build.gradle.kts's packageName, which this can't
+            // override) and zouk's own "About Zouk" menu item -- only the dialog it opens shows
+            // the full name, via AboutWindow.kt's APP_FULL_NAME text.
             MenuBar {
                 Menu("Help") {
-                    Item("About Huck", onClick = { showAbout = true })
+                    Item("About $APP_SHORT_NAME", onClick = { showAbout = true })
                 }
             }
 

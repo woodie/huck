@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.rememberWindowState
+import com.netpress.huck.APP_FULL_NAME
 import com.netpress.huck.APP_VERSION
 import com.netpress.huck.resources.Res
 import com.netpress.huck.resources.small
@@ -41,7 +42,7 @@ fun AboutWindow(onCloseRequest: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
             ) {
                 AppIconImage(resource = Res.drawable.small, modifier = Modifier.size(52.dp))
-                Text("Huck scan retriever", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(APP_FULL_NAME, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("Version $APP_VERSION")
                 Text("© 2026 John Woodell", style = MaterialTheme.typography.caption)
             }

@@ -235,12 +235,15 @@ isn't a port of anything in `zouk` -- it just hosts the `Window` and hands
 off to `ContentView`, which is the real root view and does have a direct
 `zouk` counterpart (`ContentView.swift`).
 
-### Window title: `"Huck scan retriever"`
-Matches zouk's real window title (`"Zouk scan retriever"`), confirmed
-against a real side-by-side screenshot comparison of the two apps. Set once
-here rather than per-screen -- `Window`'s title doesn't change as
-`ContentView` branches between `HostEntryView`/`ConnectingView`/
-`ScanGridView`, and zouk's doesn't either.
+### Window title: `APP_FULL_NAME` (`"Huck scan retriever"`)
+Matches zouk's real window title (`AppInfo.fullName`, `"Zouk scan
+retriever"`), confirmed against a real side-by-side screenshot comparison
+of the two apps. Set once here rather than per-screen -- `Window`'s title
+doesn't change as `ContentView` branches between `HostEntryView`/
+`ConnectingView`/`ScanGridView`, and zouk's doesn't either. Was a bare
+literal originally; moved to `AppInfo.kt`'s `APP_FULL_NAME` alongside the
+`Help > About` item's label switch to `APP_SHORT_NAME` -- see that
+section below.
 
 ### `Window`'s `icon` parameter, to replace the generic Java coffee-cup icon
 Confirmed on a real packaged-`.msi` run: the title bar and Windows taskbar
@@ -278,11 +281,25 @@ there's no system menu convention there at all. `Desktop.setAboutHandler`
 covers macOS (guarded behind `isDesktopSupported`/`isSupported` the same
 defensive way `AppModel.kt`'s `Desktop.open` call already is elsewhere,
 since `Action.APP_ABOUT` isn't available on every platform); a `MenuBar`
-with a `Help > About Huck` item covers Windows, and works as a redundant
-second path on macOS too. Both set the same `showAbout` flag, which a
-sibling `Window(...)` call (see `AboutWindow.kt`) reads to conditionally
-show itself -- Compose Desktop's normal pattern for more than one window
-per `application { }`.
+with a `Help > About $APP_SHORT_NAME` item covers Windows, and works as a
+redundant second path on macOS too. Both set the same `showAbout` flag,
+which a sibling `Window(...)` call (see `AboutWindow.kt`) reads to
+conditionally show itself -- Compose Desktop's normal pattern for more
+than one window per `application { }`.
+
+That `Help` item's label is `APP_SHORT_NAME` ("Huck"), not `APP_FULL_NAME`
+("Huck scan retriever") -- it used to be the full name, to visually match
+the dialog it opens, until a real side-by-side against the actual macOS
+system app-menu (the one this `Help` item is redundant with, reached by
+clicking "Huck" next to the Apple logo, not this in-window/Help menu)
+showed that its "About Huck"/"Hide Huck"/"Quit Huck" all come from
+`build.gradle.kts`'s `packageName` uniformly -- there's no Compose/AWT
+equivalent of SwiftUI's `CommandGroup(replacing: .appInfo)` that lets one
+of those three items carry different text than its siblings. Matching
+that real system menu (and zouk's own "About Zouk", changed for the same
+reason -- see zouk's `docs/COMMENTS.md`) meant shortening this label
+instead of lengthening `packageName`, which would have lengthened "Hide"/
+"Quit" too.
 
 ## src/main/kotlin/com/netpress/huck/AppInfo.kt
 
@@ -292,6 +309,20 @@ string shown in `AboutWindow.kt` -- matches zouk's own `Resources/
 Info.plist` `CFBundleShortVersionString`, a manually bumped string, not
 derived automatically from anything either. `docs/DELIVERY.md`'s release
 checklist has to bump this alongside `build.gradle.kts`'s `version`.
+
+### `APP_SHORT_NAME`/`APP_FULL_NAME`
+Mirrors zouk's `Sources/ZoukKit/AppInfo.swift` 1:1 -- same two strings,
+same relationship (`APP_FULL_NAME` derived from `APP_SHORT_NAME`, not an
+independent literal), same reason for existing: `Main.kt`'s `Window`
+title and `Help > About` item, and `AboutWindow.kt`'s name `Text`, all
+build off these instead of repeating the literals in three places. Unlike
+zouk, no separate testable-vs-executable-target split was needed to make
+these reachable from a spec -- `Main.kt` (`src/main`) and this file are
+already visible to `src/test` directly, one Gradle module/compilation, so
+these constants could in principle have stayed as literals in `Main.kt`
+itself. Kept here instead, alongside `APP_VERSION`, since `AboutWindow.kt`
+already imports from this file for the same "app identity" reason and a
+second import site felt worse than one file with three constants in it.
 
 ## src/main/kotlin/com/netpress/huck/ui/AboutWindow.kt
 
@@ -935,6 +966,28 @@ Real PDF thumbnails (needs a JVM PDF renderer like PDFBox -- `PDFKit` is
 macOS-only) aren't ported yet. Selection, delete, and the full
 save/open/download/context-menu flow are all real now -- see
 `docs/COWORK.md`'s "Not done yet".
+
+## src/test/kotlin/com/netpress/huck/AppInfoSpec.kt
+
+### Why this exists, and why it's plain, no indirection
+Ports zouk's `AppInfoSpec.swift` -- pins `APP_SHORT_NAME`/`APP_FULL_NAME`
+(the exact strings `Main.kt`'s `Window` title and `Help > About` item, and
+`AboutWindow.kt`'s name `Text`, are built from) so a future edit to either
+can't silently drift. Same three checks as zouk's spec: each constant's
+literal value, plus a third asserting `APP_FULL_NAME == "$APP_SHORT_NAME
+scan retriever"` -- the relationship itself, not just the two literals
+separately, so renaming one without updating the other fails even if each
+still looked plausible alone.
+
+Unlike zouk's version, this one needs no `@testable import` or separate
+testable target to reach what it's testing: `AppInfo.kt` lives in
+`src/main`, directly visible to `src/test` in the same Gradle
+module/compilation, so this is a completely ordinary `DescribeSpec`
+referencing top-level `const val`s. zouk's equivalent constants had to
+move into the `ZoukKit` library target specifically so `Tests/
+ZoukKitTests` could reach them at all -- `ZoukApp.swift` itself, in the
+`zouk` executable target, isn't `@testable import`-able (see `Package.
+swift`'s own comment on that caveat).
 
 ## src/test/kotlin/com/netpress/huck/AppModelSpec.kt
 
