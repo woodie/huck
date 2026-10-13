@@ -8,10 +8,14 @@ import java.net.URI
 // cachedFile() ever calls it).
 class FakeScanHttpClient(
     var getHandler: ((URI) -> HttpResult)? = null,
+    var propfindHandler: ((URI) -> HttpResult)? = null,
     var downloadHandler: ((URI) -> DownloadResult)? = null,
     var deleteHandler: ((URI) -> HttpResult)? = null,
 ) : ScanHttpClient {
     override fun get(url: URI): HttpResult = getHandler?.invoke(url) ?: error("FakeScanHttpClient.get: no getHandler set")
+
+    override fun propfind(url: URI): HttpResult =
+        propfindHandler?.invoke(url) ?: error("FakeScanHttpClient.propfind: no propfindHandler set")
 
     override fun download(url: URI): DownloadResult =
         downloadHandler?.invoke(url) ?: error("FakeScanHttpClient.download: no downloadHandler set")

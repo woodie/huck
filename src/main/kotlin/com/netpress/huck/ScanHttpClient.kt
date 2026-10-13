@@ -30,6 +30,9 @@ class DownloadResult(
 interface ScanHttpClient {
     fun get(url: URI): HttpResult
 
+    // WebDAV PROPFIND with Depth: 1 -- the folder plus its direct children.
+    fun propfind(url: URI): HttpResult
+
     // Downloads to its own temp file rather than streaming straight to a caller-provided
     // destination -- matches zouk's own URLSession.download(from:)/ScanHTTPClient.download(from:)
     // shape, where the caller (ScanClient.cachedFile) moves the temp file into place itself.
@@ -66,6 +69,18 @@ class JdkHttpScanHttpClient(
         return HttpResult(response.statusCode(), response.body())
     }
 
+    override fun propfind(url: URI): HttpResult {
+        val request =
+            HttpRequest
+                .newBuilder(url)
+                .timeout(REQUEST_TIMEOUT)
+                .header("Depth", "1")
+                .method("PROPFIND", HttpRequest.BodyPublishers.noBody())
+                .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
+        return HttpResult(response.statusCode(), response.body())
+    }
+
     override fun download(url: URI): DownloadResult {
         val tempFile = Files.createTempFile("huck-download-", ".tmp").toFile()
         val request =
@@ -91,7 +106,7 @@ class JdkHttpScanHttpClient(
 
     companion object {
         // Generous enough for a real file download over a slow local network, not just a
-        // files.json/DELETE round-trip -- one constant for all three request kinds rather than
+        // listing/DELETE round-trip -- one constant for every request kind rather than
         // tuning each separately, matching this file's existing "keep it simple" posture.
         private val REQUEST_TIMEOUT: Duration = Duration.ofSeconds(30)
     }
