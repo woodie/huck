@@ -7,6 +7,7 @@ import java.io.File
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.time.Instant
 
 class ScanClientError(
     message: String,
@@ -22,9 +23,20 @@ class ScanClient(
 
     override suspend fun fetchScans(): List<ScanEntry> =
         withContext(Dispatchers.IO) {
+            val result = httpClient.propfind(folderUrl(baseUrl))
+            if (result.statusCode == 405) return@withContext fetchLegacyListing()
+            checkOk(result.statusCode)
+            WebDavListing.entries(result.body).sortedByDescending { it.downloadedAt ?: Instant.MIN }
+        }
+
+    // Until lambada#21 retires it, lambada-web answers PROPFIND with 405 but still serves files.json.
+    private fun fetchLegacyListing(): List<ScanEntry> =
+        try {
             val result = httpClient.get(baseUrl.resolve("files.json"))
             checkOk(result.statusCode)
-            json.decodeFromString(result.body.decodeToString())
+            json.decodeFromString<List<ScanEntry>>(result.body.decodeToString())
+        } catch (e: Exception) {
+            throw ScanClientError(NO_WEBDAV_MESSAGE)
         }
 
     // Re-downloads on a scan.size mismatch instead of trusting a stale same-named cache entry.
@@ -55,7 +67,7 @@ class ScanClient(
             destination
         }
 
-    // DELETE on the same path GET uses to download; lambada-web shares one route for both verbs.
+    // DELETE on the file's own WebDAV address, the same one GET downloads from.
     override suspend fun delete(scan: ScanEntry) {
         withContext(Dispatchers.IO) {
             val result = httpClient.delete(baseUrl.resolve(scan.path))
@@ -68,6 +80,11 @@ class ScanClient(
     }
 
     companion object {
+        const val NO_WEBDAV_MESSAGE = "The server doesn't offer a WebDAV listing at that address (status 405)."
+
+        // PROPFIND on a folder without its trailing slash gets redirected, and huck doesn't follow redirects.
+        fun folderUrl(url: URI): URI = if (url.toString().endsWith("/")) url else URI("$url/")
+
         // Finder-style de-dup naming: "scan.pdf" -> "scan (1).pdf" instead of overwriting.
         fun uniqueDestination(
             filename: String,

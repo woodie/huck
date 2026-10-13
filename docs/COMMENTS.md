@@ -376,6 +376,43 @@ file behind). Resolved as a side effect of adding `ScanHttpClient` (see
 below): its `download(url:)` returns its own temp file, and `cachedFile`
 moves that into place itself via `Files.move(..., REPLACE_EXISTING)`.
 
+### WebDAV listing, replacing lambada-web's `GET /files.json`
+`fetchScans()` sends `PROPFIND` (`Depth: 1`) to the folder at `baseUrl`
+and reads the multistatus reply with `WebDavListing`, newest first. GET
+and DELETE then use each file's own `href` from that listing as
+`scan.path`. Mirrors zouk's same change (zouk #17; lambada issues #19 and
+#21).
+
+### `fetchLegacyListing()` -- temporary
+lambada-web answers `PROPFIND` with 405 but still serves `/files.json`,
+so on a 405 the listing falls back to it. That lets this release go onto
+a computer before the server switches to WebDAV (lambada #21). Any
+failure there is reported as "The server doesn't offer a WebDAV listing
+at that address (status 405)." Remove it, with `ScanEntry`'s
+`@Serializable` if nothing else needs it, once lambada-web is gone.
+
+### `folderUrl(_:)`
+`PROPFIND` on a folder address without its trailing slash gets a
+redirect to the slashed address, and `java.net.http.HttpClient` doesn't
+follow redirects by default, so the slash is added up front.
+
+## src/main/kotlin/com/netpress/huck/WebDavListing.kt
+
+### DOM parsing, namespace-aware
+`DocumentBuilderFactory` with `isNamespaceAware`, reading elements by
+the `DAV:` namespace, so any prefix (`D:`, `d:`) works. Servers write an
+empty `resourcetype` differently (`<D:resourcetype></D:resourcetype>` on
+the Pi's nginx, `<D:resourcetype/>` elsewhere), which is why this parses
+the XML rather than matching text. DOCTYPEs are refused, which also
+rules out external entities. A quiet `ErrorHandler` stops the parser
+printing "[Fatal Error]" to stderr on a non-XML reply before it throws.
+
+### Fallbacks
+Collections are skipped, including the folder itself. A missing
+`displayname` falls back to the decoded last path segment of `href`; an
+unreadable `getlastmodified` leaves `time` empty, so the entry shows "an
+unknown time".
+
 ## src/main/kotlin/com/netpress/huck/ScanHttpClient.kt
 
 ### `ScanHttpClient` -- a testability seam, matching zouk's `ScanHTTPClient` protocol
@@ -408,7 +445,7 @@ throwing -- there's no other path back to a usable UI state. Fixed with a
 applied via `.timeout(...)` on every `HttpRequest` builder
 (`get`/`download`/`delete`) -- one constant for all three request kinds
 (generous enough for a real file download over a slow local network, not
-just a `files.json`/DELETE round-trip) rather than tuning each separately.
+just a listing/DELETE round-trip) rather than tuning each separately.
 
 ## src/main/kotlin/com/netpress/huck/ScanEntry.kt
 
