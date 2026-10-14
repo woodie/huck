@@ -502,6 +502,7 @@ private fun ScanThumbnailCell(
                         menuExpanded = true
                     },
         ) {
+            val selectionFill = SelectionBlue.copy(alpha = 0.15f).compositeOver(MaterialTheme.colors.surface)
             Box(
                 modifier =
                     Modifier
@@ -527,7 +528,7 @@ private fun ScanThumbnailCell(
                             // Opaque (15% blue over the surface color), not translucent: a see-through
                             // fill let the shadow's inner edge show as a darker ring around a lighter
                             // middle, which only showed once a wide picture stopped covering the middle.
-                            if (isSelected) SelectionBlue.copy(alpha = 0.15f).compositeOver(MaterialTheme.colors.surface) else Color.Transparent,
+                            if (isSelected) selectionFill else Color.Transparent,
                             RoundedCornerShape(10.dp),
                         ).padding(14.dp),
             ) {
