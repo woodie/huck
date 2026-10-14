@@ -6,8 +6,6 @@
 [![Release](https://img.shields.io/github/v/release/woodie/huck.svg)](https://github.com/woodie/huck/releases/latest)
 [![License](https://img.shields.io/github/license/woodie/huck.svg)](LICENSE)
 
-![huck's scan grid, showing two real scans](docs/window.png)
-
 [lambada](https://github.com/woodie/lambada) serves the scans from an old
 scanner (one that needs an open relay) over WebDAV, so a web browser, File Explorer
 and other WebDAV apps can all reach them. Each comes with extra steps, though:
@@ -39,6 +37,8 @@ it's hard to miss.
 To upload, drag files onto the window, or click the upload button at the
 right of the toolbar and pick them. Each file can be up to 25 MB; if one
 with the same name is already there, huck asks before replacing it.
+
+<img src="docs/window.png" width="472" height="424">
 
 ## Compatibility
 
