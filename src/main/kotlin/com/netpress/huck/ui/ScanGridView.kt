@@ -534,16 +534,19 @@ private fun ScanThumbnailCell(
                     val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
                     val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
                     val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
-                    Image(
-                        bitmap = thumbnailImage,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier =
-                            Modifier
-                                .size(width = boxWidth, height = boxHeight)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colors.surface),
-                    )
+                    // A fixed 96dp-tall slot either way, so a wide picture doesn't make its row shorter.
+                    Box(modifier = Modifier.height(96.dp), contentAlignment = Alignment.Center) {
+                        Image(
+                            bitmap = thumbnailImage,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier =
+                                Modifier
+                                    .size(width = boxWidth, height = boxHeight)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colors.surface),
+                        )
+                    }
                 } else {
                     DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
                 }
