@@ -67,6 +67,18 @@ Per `~/workspace/woodie/docs/COWORK.md`'s "Working on unfamiliar stacks."
   resolved via `gradlePluginPortal()` in `settings.gradle.kts`) -- no sibling
   checkout of `kotidy` needed anymore, unlike `humane-kotlin`.
 
+## Upload
+
+Ported from zouk's upload (see zouk's `docs/COWORK.md`): files dropped on
+the grid (Compose Desktop's `Modifier.dragAndDropTarget`, reading
+`event.awtTransferable` as `DataFlavor.javaFileListFlavor`, with a primary
+border while dragging) or picked with the toolbar's upload button (an AWT
+`FileDialog` in multiple mode) go through `AppModel.upload()`: folders and
+files over 25 MB (`ScanClient.MAX_UPLOAD_BYTES`) are skipped with a reason, a
+same-named file asks first (`confirmReplace`, a `JOptionPane` in the app,
+injected in specs), then one PUT each (`ScanHttpClient.put`) and a fresh
+listing that selects the new file.
+
 ## Not yet done
 
 - `ScanGridView`'s cell sizing/spacing/footer layout hasn't had the same

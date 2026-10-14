@@ -75,15 +75,36 @@ class ScanClient(
         }
     }
 
+    // PUT into the folder under the file's own name, the way Explorer and lambada's web page upload.
+    override suspend fun upload(file: File) {
+        withContext(Dispatchers.IO) {
+            val result = httpClient.put(uploadUrl(file.name, baseUrl), file)
+            checkOk(result.statusCode)
+        }
+    }
+
     private fun checkOk(status: Int) {
         if (status !in 200..299) throw ScanClientError("The server responded with status $status.")
     }
 
     companion object {
+        // lambada's nginx refuses bigger uploads (client_max_body_size 25m).
+        const val MAX_UPLOAD_BYTES = 25L * 1024 * 1024
+
         const val NO_WEBDAV_MESSAGE = "The server doesn't offer a WebDAV listing at that address (status 405)."
 
         // PROPFIND on a folder without its trailing slash gets redirected, and huck doesn't follow redirects.
         fun folderUrl(url: URI): URI = if (url.toString().endsWith("/")) url else URI("$url/")
+
+        // URI's multi-argument constructor quotes what a path can't hold (space, #, ?, %), and
+        // toASCIIString() encodes anything non-ASCII, so any file name stays one path segment.
+        fun uploadUrl(
+            name: String,
+            baseUrl: URI,
+        ): URI {
+            val folder = folderUrl(baseUrl)
+            return URI(URI(folder.scheme, folder.authority, folder.path + name, null, null).toASCIIString())
+        }
 
         // Finder-style de-dup naming: "scan.pdf" -> "scan (1).pdf" instead of overwriting.
         fun uniqueDestination(

@@ -75,6 +75,8 @@ fun ContentView(
                     scope.launch { model.delete(it) }
                 },
                 onCancelDelete = { model.cancelDelete() },
+                onUpload = { scope.launch { model.upload(it) } },
+                onChooseFilesToUpload = { scope.launch { model.chooseFilesToUpload() } },
             )
 
         else ->

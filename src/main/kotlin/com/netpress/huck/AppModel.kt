@@ -18,6 +18,8 @@ import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.util.prefs.Preferences
+import javax.imageio.ImageIO
+import javax.swing.JOptionPane
 
 sealed class ConnectionState {
     data object Idle : ConnectionState()
@@ -51,6 +53,8 @@ interface ScanFetching {
     ): File
 
     suspend fun delete(scan: ScanEntry)
+
+    suspend fun upload(file: File)
 }
 
 // Ports zouk's AppModel (Sources/ZoukKit/AppModel.swift). See docs/COWORK.md "Current status"
@@ -66,6 +70,8 @@ class AppModel(
     // matching zouk's own fallback path (homeDirectoryForCurrentUser/Downloads) exactly.
     private val cacheDirectory: File = File(System.getProperty("java.io.tmpdir"), "huck/files"),
     private val downloadsDirectory: File = File(System.getProperty("user.home"), "Downloads"),
+    // Asked before an upload replaces a file of the same name; specs pass their own answer.
+    private val confirmReplace: (String) -> Boolean = { askToReplace(it) },
 ) {
     var hostInput: String by mutableStateOf(preferences.get(HOST_KEY, ""))
     var state: ConnectionState by mutableStateOf(ConnectionState.Idle)
@@ -155,12 +161,17 @@ class AppModel(
         val client = this.client ?: return null
         return try {
             val file = client.cachedFile(scan, cacheDirectory)
+            // Uploads can be pictures as well as PDFs; ImageIO reads PNG, JPEG, GIF and BMP.
             val bitmap =
                 withContext(Dispatchers.IO) {
-                    Loader.loadPDF(file).use { document ->
-                        PDFRenderer(document).renderImageWithDPI(0, THUMBNAIL_DPI).toComposeImageBitmap()
-                    }
-                }
+                    val pdfPage =
+                        runCatching {
+                            Loader.loadPDF(file).use { document ->
+                                PDFRenderer(document).renderImageWithDPI(0, THUMBNAIL_DPI)
+                            }
+                        }.getOrNull()
+                    (pdfPage ?: ImageIO.read(file))?.toComposeImageBitmap()
+                } ?: return null
             thumbnailCache[scan.id] = bitmap
             bitmap
         } catch (e: Exception) {
@@ -277,6 +288,58 @@ class AppModel(
         }
     }
 
+    // The toolbar's upload button. FileDialog in multiple mode is AWT's native open panel.
+    suspend fun chooseFilesToUpload() {
+        if (client == null) return
+        val dialog = FileDialog(null as Frame?, "Choose files to upload to $hostInput (up to 25 MB each).", FileDialog.LOAD)
+        dialog.isMultipleMode = true
+        dialog.isVisible = true // Blocks until the panel closes.
+        upload(dialog.files.toList())
+    }
+
+    // Files dropped on the grid or chosen with the upload button: one PUT each, then a fresh
+    // listing. Folders and files over 25 MB are skipped up front, with the reason in the failure
+    // flash, matching zouk's AppModel.upload(_:).
+    suspend fun upload(files: List<File>) {
+        val client = this.client ?: return
+        if (files.isEmpty()) return
+        isBusy = true
+        savedMessage = null
+        val uploaded = mutableListOf<String>()
+        val failed = mutableListOf<String>()
+        try {
+            for (file in files) {
+                when {
+                    file.isDirectory -> failed += "${file.name} (a folder)"
+                    file.length() > ScanClient.MAX_UPLOAD_BYTES -> failed += "${file.name} (over 25 MB)"
+                    scans.any { it.name == file.name } && !confirmReplace(file.name) -> Unit
+                    else -> {
+                        savingMessage = "Uploading ${file.name}…"
+                        try {
+                            client.upload(file)
+                            uploaded += file.name
+                        } catch (e: Exception) {
+                            failed += file.name
+                        }
+                    }
+                }
+            }
+            savingMessage = null
+            runCatching { client.fetchScans() }.onSuccess { scans = it }
+            uploaded.lastOrNull()?.let { last ->
+                selectedScanID = last
+                savedMessage = if (uploaded.size == 1) "File $last uploaded." else "${uploaded.size} files uploaded."
+            }
+            if (failed.isNotEmpty()) {
+                savingMessage = "Couldn't upload ${failed.joinToString(", ")}."
+                delay(3_000)
+                savingMessage = null
+            }
+        } finally {
+            isBusy = false
+        }
+    }
+
     private suspend fun waitOutMinimumConnectingDuration(start: Instant) {
         val elapsed = Duration.between(start, Instant.now())
         if (elapsed < MINIMUM_CONNECTING_DURATION) {
@@ -293,6 +356,14 @@ class AppModel(
         // PDFRenderer renders by DPI, not a target pixel size, but 96 keeps text legible without
         // rendering full-resolution pages nobody's going to see at this size.
         private const val THUMBNAIL_DPI = 96f
+
+        private fun askToReplace(name: String): Boolean =
+            JOptionPane.showConfirmDialog(
+                null,
+                "A file with that name is already there. Uploading replaces it.",
+                "Replace $name?",
+                JOptionPane.OK_CANCEL_OPTION,
+            ) == JOptionPane.OK_OPTION
 
         fun baseUrlFrom(input: String): URI? {
             val trimmed = input.trim()
