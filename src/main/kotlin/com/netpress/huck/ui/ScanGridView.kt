@@ -529,15 +529,20 @@ private fun ScanThumbnailCell(
             ) {
                 val thumbnailImage = image
                 if (thumbnailImage != null) {
+                    // Sized to the picture's own shape within a 96x96dp box, so a page stays
+                    // page-shaped (about 74x96) and a wide upload isn't put on a tall page.
+                    val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
+                    val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
+                    val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
                     Image(
                         bitmap = thumbnailImage,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
                         modifier =
                             Modifier
-                                .size(width = 76.dp, height = 96.dp)
-                                .background(MaterialTheme.colors.surface)
-                                .clip(RoundedCornerShape(6.dp)),
+                                .size(width = boxWidth, height = boxHeight)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colors.surface),
                     )
                 } else {
                     DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
