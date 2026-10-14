@@ -503,6 +503,9 @@ private fun ScanThumbnailCell(
                     },
         ) {
             val selectionFill = SelectionBlue.copy(alpha = 0.15f).compositeOver(MaterialTheme.colors.surface)
+            // A fixed 124dp-tall slot (96 + the halo's 14dp padding on each side), so a wide
+            // picture doesn't make its row shorter; the halo inside hugs the thumbnail itself.
+            Box(modifier = Modifier.height(124.dp), contentAlignment = Alignment.Center) {
             Box(
                 modifier =
                     Modifier
@@ -539,22 +542,20 @@ private fun ScanThumbnailCell(
                     val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
                     val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
                     val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
-                    // A fixed 96dp-tall slot either way, so a wide picture doesn't make its row shorter.
-                    Box(modifier = Modifier.height(96.dp), contentAlignment = Alignment.Center) {
-                        Image(
-                            bitmap = thumbnailImage,
-                            contentDescription = null,
-                            contentScale = ContentScale.Fit,
-                            modifier =
-                                Modifier
-                                    .size(width = boxWidth, height = boxHeight)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colors.surface),
-                        )
-                    }
+                    Image(
+                        bitmap = thumbnailImage,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier =
+                            Modifier
+                                .size(width = boxWidth, height = boxHeight)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colors.surface),
+                    )
                 } else {
                     DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
                 }
+            }
             }
 
             Text(
