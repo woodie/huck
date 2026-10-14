@@ -64,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.pointerInput
@@ -523,7 +524,10 @@ private fun ScanThumbnailCell(
                             ambientColor = SelectionBlue.copy(alpha = 0.55f),
                             spotColor = SelectionBlue.copy(alpha = 0.55f),
                         ).background(
-                            if (isSelected) SelectionBlue.copy(alpha = 0.15f) else Color.Transparent,
+                            // Opaque (15% blue over the surface color), not translucent: a see-through
+                            // fill let the shadow's inner edge show as a darker ring around a lighter
+                            // middle, which only showed once a wide picture stopped covering the middle.
+                            if (isSelected) SelectionBlue.copy(alpha = 0.15f).compositeOver(MaterialTheme.colors.surface) else Color.Transparent,
                             RoundedCornerShape(10.dp),
                         ).padding(14.dp),
             ) {
