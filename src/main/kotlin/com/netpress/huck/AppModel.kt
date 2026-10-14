@@ -203,15 +203,32 @@ class AppModel(
         isBusy = true
         try {
             client.delete(scan)
-            scans = scans.filterNot { it.id == scan.id }
-            if (selectedScanID == scan.id) selectedScanID = null
+            removeFromList(scan)
+        } catch (e: ScanClientError) {
+            if (e.status == 404) removeFromList(scan) else deleteFailed(client, scan)
         } catch (e: Exception) {
-            savingMessage = "Couldn't delete ${scan.name}."
-            delay(2_000)
-            savingMessage = null
+            deleteFailed(client, scan)
         } finally {
             isBusy = false
         }
+    }
+
+    // 404 on delete means another client deleted it first, which is what was wanted anyway,
+    // matching lambada's web page.
+    private fun removeFromList(scan: ScanEntry) {
+        scans = scans.filterNot { it.id == scan.id }
+        if (selectedScanID == scan.id) selectedScanID = null
+    }
+
+    // Reloads the list so it shows what's really there, then flashes the failure.
+    private suspend fun deleteFailed(
+        client: ScanFetching,
+        scan: ScanEntry,
+    ) {
+        runCatching { client.fetchScans() }.onSuccess { scans = it }
+        savingMessage = "Couldn't delete ${scan.name}."
+        delay(2_000)
+        savingMessage = null
     }
 
     // Double-click and the context menu's "Download and Open", matching zouk's open(_:) exactly.

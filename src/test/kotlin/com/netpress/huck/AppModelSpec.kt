@@ -375,6 +375,22 @@ class AppModelSpec :
                         }
                     }
 
+                    context("when another client already deleted it") {
+                        beforeEach {
+                            val (connected, connectedScan) =
+                                connectedModel(onDelete = { throw ScanClientError("The server responded with status 404.", 404) })
+                            model = connected
+                            scan = connectedScan
+                            model.selectedScanID = scan.id
+                        }
+
+                        it("removes it without complaining, since it's gone either way") {
+                            model.scans shouldBe emptyList()
+                            model.selectedScanID shouldBe null
+                            model.savingMessage shouldBe null
+                        }
+                    }
+
                     context("when the server rejects the delete") {
                         beforeEach {
                             val (connected, connectedScan) =

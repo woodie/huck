@@ -506,56 +506,56 @@ private fun ScanThumbnailCell(
             // A fixed 124dp-tall slot (96 + the halo's 14dp padding on each side), so a wide
             // picture doesn't make its row shorter; the halo inside hugs the thumbnail itself.
             Box(modifier = Modifier.height(124.dp), contentAlignment = Alignment.Center) {
-            Box(
-                modifier =
-                    Modifier
-                        // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill
-                        // *plus* a colored shadow/glow (55% opacity, 7pt radius), which is what
-                        // actually makes it read as a soft blue halo around the thumbnail rather
-                        // than a flat background square. shadow()/background() must come BEFORE
-                        // padding() here -- modifier order matters: padding placed first
-                        // (outermost) confines the paint to the exact icon bounds, since it
-                        // shrinks the space handed to the modifiers after it, leaving no visible
-                        // margin at all except through the icon's own fold-shaped notch
-                        // (confirmed on a real run -- that's exactly where the blue was peeking
-                        // through and nowhere else). Padding placed last (innermost) instead only
-                        // pushes the *child* inward, so shadow/background paint across the full
-                        // padded box, with the icon sitting inset within it.
-                        .shadow(
-                            elevation = if (isSelected) 7.dp else 0.dp,
-                            shape = RoundedCornerShape(10.dp),
-                            clip = false,
-                            ambientColor = SelectionBlue.copy(alpha = 0.55f),
-                            spotColor = SelectionBlue.copy(alpha = 0.55f),
-                        ).background(
-                            // Opaque (15% blue over the surface color), not translucent: a see-through
-                            // fill let the shadow's inner edge show as a darker ring around a lighter
-                            // middle, which only showed once a wide picture stopped covering the middle.
-                            if (isSelected) selectionFill else Color.Transparent,
-                            RoundedCornerShape(10.dp),
-                        ).padding(14.dp),
-            ) {
-                val thumbnailImage = image
-                if (thumbnailImage != null) {
-                    // Sized to the picture's own shape within a 96x96dp box, so a page stays
-                    // page-shaped (about 74x96) and a wide upload isn't put on a tall page.
-                    val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
-                    val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
-                    val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
-                    Image(
-                        bitmap = thumbnailImage,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier =
-                            Modifier
-                                .size(width = boxWidth, height = boxHeight)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colors.surface),
-                    )
-                } else {
-                    DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+                Box(
+                    modifier =
+                        Modifier
+                            // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill
+                            // *plus* a colored shadow/glow (55% opacity, 7pt radius), which is what
+                            // actually makes it read as a soft blue halo around the thumbnail rather
+                            // than a flat background square. shadow()/background() must come BEFORE
+                            // padding() here -- modifier order matters: padding placed first
+                            // (outermost) confines the paint to the exact icon bounds, since it
+                            // shrinks the space handed to the modifiers after it, leaving no visible
+                            // margin at all except through the icon's own fold-shaped notch
+                            // (confirmed on a real run -- that's exactly where the blue was peeking
+                            // through and nowhere else). Padding placed last (innermost) instead only
+                            // pushes the *child* inward, so shadow/background paint across the full
+                            // padded box, with the icon sitting inset within it.
+                            .shadow(
+                                elevation = if (isSelected) 7.dp else 0.dp,
+                                shape = RoundedCornerShape(10.dp),
+                                clip = false,
+                                ambientColor = SelectionBlue.copy(alpha = 0.55f),
+                                spotColor = SelectionBlue.copy(alpha = 0.55f),
+                            ).background(
+                                // Opaque (15% blue over the surface color), not translucent: a see-through
+                                // fill let the shadow's inner edge show as a darker ring around a lighter
+                                // middle, which only showed once a wide picture stopped covering the middle.
+                                if (isSelected) selectionFill else Color.Transparent,
+                                RoundedCornerShape(10.dp),
+                            ).padding(14.dp),
+                ) {
+                    val thumbnailImage = image
+                    if (thumbnailImage != null) {
+                        // Sized to the picture's own shape within a 96x96dp box, so a page stays
+                        // page-shaped (about 74x96) and a wide upload isn't put on a tall page.
+                        val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
+                        val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
+                        val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
+                        Image(
+                            bitmap = thumbnailImage,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier =
+                                Modifier
+                                    .size(width = boxWidth, height = boxHeight)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colors.surface),
+                        )
+                    } else {
+                        DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+                    }
                 }
-            }
             }
 
             Text(

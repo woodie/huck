@@ -11,6 +11,8 @@ import java.time.Instant
 
 class ScanClientError(
     message: String,
+    // The HTTP status, when the server answered with one (404 on delete means already gone).
+    val status: Int? = null,
 ) : Exception(message)
 
 // Ports zouk's ScanClient (Sources/ZoukKit/ScanClient.swift). httpClient is the same
@@ -84,7 +86,7 @@ class ScanClient(
     }
 
     private fun checkOk(status: Int) {
-        if (status !in 200..299) throw ScanClientError("The server responded with status $status.")
+        if (status !in 200..299) throw ScanClientError("The server responded with status $status.", status)
     }
 
     companion object {
