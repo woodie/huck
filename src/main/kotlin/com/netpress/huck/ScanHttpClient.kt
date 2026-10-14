@@ -42,6 +42,12 @@ interface ScanHttpClient {
     fun download(url: URI): DownloadResult
 
     fun delete(url: URI): HttpResult
+
+    // WebDAV upload: the file's bytes as the body of a PUT to its new address.
+    fun put(
+        url: URI,
+        file: File,
+    ): HttpResult
 }
 
 class JdkHttpScanHttpClient(
@@ -99,6 +105,20 @@ class JdkHttpScanHttpClient(
                 .newBuilder(url)
                 .timeout(REQUEST_TIMEOUT)
                 .DELETE()
+                .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
+        return HttpResult(response.statusCode(), response.body())
+    }
+
+    override fun put(
+        url: URI,
+        file: File,
+    ): HttpResult {
+        val request =
+            HttpRequest
+                .newBuilder(url)
+                .timeout(REQUEST_TIMEOUT)
+                .PUT(HttpRequest.BodyPublishers.ofFile(file.toPath()))
                 .build()
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
         return HttpResult(response.statusCode(), response.body())

@@ -6,6 +6,7 @@ import androidx.compose.foundation.PointerMatcher
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
@@ -50,13 +52,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.awtTransferable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerButton
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,7 +74,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.netpress.huck.ConnectionState
 import com.netpress.huck.ScanEntry
-import java.time.Instant
+import java.awt.datatransfer.DataFlavor
+import java.io.File
 
 // Ports zouk's ScanGridView (Sources/ZoukKit/ScanGridView.swift). Real now: the grid layout,
 // selection (click a cell to toggle, click empty space to deselect), double-click to
@@ -81,6 +90,7 @@ import java.time.Instant
 // Toolbar matches zouk's real one -- a refresh icon button, not a text button, and a host field
 // in place of a separate "Change server" button. Enter in the field re-runs connect() against
 // whatever's currently typed, so switching servers doesn't require leaving this screen.
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ScanGridView(
     state: ConnectionState,
@@ -107,8 +117,41 @@ fun ScanGridView(
     // own context menu deliberately skips the confirmation dialog for this path (see
     // AppModel.requestDelete's comment).
     onDeleteImmediately: (ScanEntry) -> Unit,
+    // Files dropped on the grid, and the toolbar's upload button, matching zouk's upload.
+    onUpload: (List<File>) -> Unit,
+    onChooseFilesToUpload: () -> Unit,
     loadThumbnail: suspend (ScanEntry) -> ImageBitmap?,
 ) {
+    // Dashed-outline highlight while files are dragged over the grid, like zouk's.
+    var isDropTargeted by remember { mutableStateOf(false) }
+    val currentOnUpload by rememberUpdatedState(onUpload)
+    val dropTarget =
+        remember {
+            object : DragAndDropTarget {
+                override fun onEntered(event: DragAndDropEvent) {
+                    isDropTargeted = true
+                }
+
+                override fun onExited(event: DragAndDropEvent) {
+                    isDropTargeted = false
+                }
+
+                override fun onEnded(event: DragAndDropEvent) {
+                    isDropTargeted = false
+                }
+
+                override fun onDrop(event: DragAndDropEvent): Boolean {
+                    isDropTargeted = false
+                    val transferable = event.awtTransferable
+                    if (!transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) return false
+                    val files = (transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<*>).filterIsInstance<File>()
+                    if (files.isEmpty()) return false
+                    currentOnUpload(files)
+                    return true
+                }
+            }
+        }
+
     // A Box, not just the Column directly -- the Column holds the real layout (toolbar/content/
     // footer), and the saving-message capsule below is a sibling overlay on top of it, matching
     // zouk's own .overlay { ... } modifier (which applies to the whole VStack, not just one
@@ -137,6 +180,13 @@ fun ScanGridView(
                     placeholder = "Hostname or IP address",
                     onSubmit = onSubmitHost,
                 )
+
+                CircularIconButton(
+                    onClick = onChooseFilesToUpload,
+                    enabled = !isBusy,
+                    icon = Icons.Filled.FileUpload,
+                    contentDescription = "Upload files",
+                )
             }
 
             Divider()
@@ -148,11 +198,22 @@ fun ScanGridView(
                 // but invisible) rather than sharing space with it. Confirmed on a real run: the
                 // footer never actually rendered, even before selection/delete were ported.
                 modifier =
-                    Modifier.weight(1f).fillMaxWidth().padding(12.dp).clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDeselectAll,
-                    ),
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .dragAndDropTarget(shouldStartDragAndDrop = { !isBusy }, target = dropTarget)
+                        .then(
+                            if (isDropTargeted) {
+                                Modifier.border(3.dp, MaterialTheme.colors.primary, RoundedCornerShape(10.dp))
+                            } else {
+                                Modifier
+                            },
+                        ).padding(12.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onDeselectAll,
+                        ),
             ) {
                 when {
                     // Both of these get their own fillMaxSize() + Center Box -- the parent Box
@@ -174,7 +235,7 @@ fun ScanGridView(
 
                     scans.isEmpty() ->
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text(if (isBusy) "Loading..." else "No scans found.")
+                            Text(if (isBusy) "Loading..." else "No files yet. Drop files here to upload.")
                         }
 
                     else ->
@@ -231,11 +292,11 @@ fun ScanGridView(
     }
 
     // presenting uses pendingDelete, not selectedScan, matching zouk -- title mirrors the web
-    // listing's confirm() text via ScanEntry.timeAgo.
+    // page's confirm() text.
     if (pendingDelete != null) {
         AlertDialog(
             onDismissRequest = onCancelDelete,
-            title = { Text("Delete this scan from ${pendingDelete.timeAgo(Instant.now())}?") },
+            title = { Text("Delete ${pendingDelete.name}?") },
             confirmButton = {
                 TextButton(onClick = { onConfirmDelete(pendingDelete) }) { Text("Delete") }
             },
@@ -280,7 +341,7 @@ private fun ScanGridFooter(
                     CircularIconButton(
                         onClick = { onDelete(selectedScan) },
                         icon = Icons.Filled.Delete,
-                        contentDescription = "Delete this scan",
+                        contentDescription = "Delete this file",
                     )
                 }
 
@@ -288,8 +349,8 @@ private fun ScanGridFooter(
                 Text(
                     when (scanCount) {
                         0 -> ""
-                        1 -> "1 scan"
-                        else -> "$scanCount scans"
+                        1 -> "1 file"
+                        else -> "$scanCount files"
                     },
                     style = MaterialTheme.typography.caption,
                 )
@@ -441,46 +502,59 @@ private fun ScanThumbnailCell(
                         menuExpanded = true
                     },
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill
-                        // *plus* a colored shadow/glow (55% opacity, 7pt radius), which is what
-                        // actually makes it read as a soft blue halo around the thumbnail rather
-                        // than a flat background square. shadow()/background() must come BEFORE
-                        // padding() here -- modifier order matters: padding placed first
-                        // (outermost) confines the paint to the exact icon bounds, since it
-                        // shrinks the space handed to the modifiers after it, leaving no visible
-                        // margin at all except through the icon's own fold-shaped notch
-                        // (confirmed on a real run -- that's exactly where the blue was peeking
-                        // through and nowhere else). Padding placed last (innermost) instead only
-                        // pushes the *child* inward, so shadow/background paint across the full
-                        // padded box, with the icon sitting inset within it.
-                        .shadow(
-                            elevation = if (isSelected) 7.dp else 0.dp,
-                            shape = RoundedCornerShape(10.dp),
-                            clip = false,
-                            ambientColor = SelectionBlue.copy(alpha = 0.55f),
-                            spotColor = SelectionBlue.copy(alpha = 0.55f),
-                        ).background(
-                            if (isSelected) SelectionBlue.copy(alpha = 0.15f) else Color.Transparent,
-                            RoundedCornerShape(10.dp),
-                        ).padding(14.dp),
-            ) {
-                val thumbnailImage = image
-                if (thumbnailImage != null) {
-                    Image(
-                        bitmap = thumbnailImage,
-                        contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier =
-                            Modifier
-                                .size(width = 76.dp, height = 96.dp)
-                                .background(MaterialTheme.colors.surface)
-                                .clip(RoundedCornerShape(6.dp)),
-                    )
-                } else {
-                    DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+            val selectionFill = SelectionBlue.copy(alpha = 0.15f).compositeOver(MaterialTheme.colors.surface)
+            // A fixed 124dp-tall slot (96 + the halo's 14dp padding on each side), so a wide
+            // picture doesn't make its row shorter; the halo inside hugs the thumbnail itself.
+            Box(modifier = Modifier.height(124.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier =
+                        Modifier
+                            // Zouk's selection isn't just a flat tint -- it's a 15%-opacity fill
+                            // *plus* a colored shadow/glow (55% opacity, 7pt radius), which is what
+                            // actually makes it read as a soft blue halo around the thumbnail rather
+                            // than a flat background square. shadow()/background() must come BEFORE
+                            // padding() here -- modifier order matters: padding placed first
+                            // (outermost) confines the paint to the exact icon bounds, since it
+                            // shrinks the space handed to the modifiers after it, leaving no visible
+                            // margin at all except through the icon's own fold-shaped notch
+                            // (confirmed on a real run -- that's exactly where the blue was peeking
+                            // through and nowhere else). Padding placed last (innermost) instead only
+                            // pushes the *child* inward, so shadow/background paint across the full
+                            // padded box, with the icon sitting inset within it.
+                            .shadow(
+                                elevation = if (isSelected) 7.dp else 0.dp,
+                                shape = RoundedCornerShape(10.dp),
+                                clip = false,
+                                ambientColor = SelectionBlue.copy(alpha = 0.55f),
+                                spotColor = SelectionBlue.copy(alpha = 0.55f),
+                            ).background(
+                                // Opaque (15% blue over the surface color), not translucent: a see-through
+                                // fill let the shadow's inner edge show as a darker ring around a lighter
+                                // middle, which only showed once a wide picture stopped covering the middle.
+                                if (isSelected) selectionFill else Color.Transparent,
+                                RoundedCornerShape(10.dp),
+                            ).padding(14.dp),
+                ) {
+                    val thumbnailImage = image
+                    if (thumbnailImage != null) {
+                        // Sized to the picture's own shape within a 96x96dp box, so a page stays
+                        // page-shaped (about 74x96) and a wide upload isn't put on a tall page.
+                        val ratio = thumbnailImage.width.toFloat() / thumbnailImage.height.coerceAtLeast(1)
+                        val boxWidth = if (ratio >= 1f) 96.dp else 96.dp * ratio
+                        val boxHeight = if (ratio >= 1f) 96.dp / ratio else 96.dp
+                        Image(
+                            bitmap = thumbnailImage,
+                            contentDescription = null,
+                            contentScale = ContentScale.Fit,
+                            modifier =
+                                Modifier
+                                    .size(width = boxWidth, height = boxHeight)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colors.surface),
+                        )
+                    } else {
+                        DogEaredDocumentIcon(modifier = Modifier.size(width = 76.dp, height = 96.dp))
+                    }
                 }
             }
 

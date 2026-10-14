@@ -252,6 +252,60 @@ class ScanClientSpec :
                 }
             }
 
+            describe("#upload(_:)") {
+                val file = File(System.getProperty("java.io.tmpdir"), "my scan #1.pdf")
+
+                context("when the server responds with 201") {
+                    it("sends PUT to the folder under the file's own name, encoded, with the file as the body") {
+                        runTest {
+                            var requestedUrl: URI? = null
+                            var sentFile: File? = null
+                            val fakeHttp =
+                                FakeScanHttpClient(putHandler = { url, body ->
+                                    requestedUrl = url
+                                    sentFile = body
+                                    HttpResult(201, ByteArray(0))
+                                })
+                            val client = ScanClient(baseUrl, fakeHttp)
+
+                            client.upload(file)
+
+                            requestedUrl shouldBe URI("http://scans.example.com/my%20scan%20%231.pdf")
+                            sentFile shouldBe file
+                        }
+                    }
+                }
+
+                context("when the server refuses it") {
+                    it("throws ScanClientError with that status code") {
+                        runTest {
+                            val fakeHttp = FakeScanHttpClient(putHandler = { _, _ -> HttpResult(413, ByteArray(0)) })
+                            val client = ScanClient(baseUrl, fakeHttp)
+
+                            val error = shouldThrow<ScanClientError> { client.upload(file) }
+
+                            error.message shouldBe "The server responded with status 413."
+                        }
+                    }
+                }
+            }
+
+            describe(".uploadUrl()") {
+                context("when the name has a percent sign and an accent") {
+                    it("encodes both") {
+                        ScanClient.uploadUrl("100% café.pdf", baseUrl).toString() shouldBe
+                            "http://scans.example.com/100%25%20caf%C3%A9.pdf"
+                    }
+                }
+
+                context("when baseUrl has a path without a trailing slash") {
+                    it("puts the file inside that folder") {
+                        ScanClient.uploadUrl("a.pdf", URI("http://10.0.1.111:8081/scans")) shouldBe
+                            URI("http://10.0.1.111:8081/scans/a.pdf")
+                    }
+                }
+            }
+
             describe("#save(_:to:cacheDirectory:)") {
                 val bytes = "pdf bytes".toByteArray()
                 lateinit var root: File

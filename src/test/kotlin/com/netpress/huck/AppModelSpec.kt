@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import java.io.File
 import java.net.URI
+import java.nio.file.Files
 import java.util.UUID
 import java.util.prefs.Preferences
 
@@ -237,6 +238,120 @@ class AppModelSpec :
                     }
                 }
 
+                // Matches zouk's AppModelSpec.swift's #upload(_:) block. Like #delete() below, the
+                // failure contexts pay upload()'s real 3-second flash, since justBeforeEach runs on
+                // Kotest's own TestScope, not runTest's virtual time.
+                describe("#upload()") {
+                    lateinit var folder: File
+                    lateinit var model: AppModel
+                    lateinit var scan: ScanEntry
+                    lateinit var files: List<File>
+                    val sent = mutableListOf<String>()
+                    val asked = mutableListOf<String>()
+                    var replaceAnswer = true
+                    var uploadFails = false
+
+                    fun makeFile(
+                        name: String,
+                        bytes: Long = 7,
+                    ): File =
+                        File(folder, name).also { file ->
+                            // setLength() makes a sparse file, so a 26 MB test file costs nothing.
+                            java.io.RandomAccessFile(file, "rw").use { it.setLength(bytes) }
+                        }
+
+                    beforeEach {
+                        folder = Files.createTempDirectory("huck-upload-").toFile()
+                        sent.clear()
+                        asked.clear()
+                        replaceAnswer = true
+                        uploadFails = false
+                        scan =
+                            ScanEntry(
+                                name = "1782420815.pdf",
+                                size = 7,
+                                time = "2026-06-25T17:30:00Z",
+                                path = "/download/1782420815.pdf",
+                            )
+                        val uploadedScan = ScanEntry(name = "notes.pdf", size = 7, time = "2026-10-13T22:00:00Z", path = "/notes.pdf")
+                        var listing = listOf(scan)
+                        model =
+                            AppModel(
+                                preferences = scopedPreferences(),
+                                clientFactory = {
+                                    FakeScanFetching(onUpload = { file ->
+                                        if (uploadFails) throw ScanClientError("The server responded with status 403.")
+                                        sent += file.name
+                                        listing = listOf(uploadedScan, scan)
+                                    }) { listing }
+                                },
+                                confirmReplace = { name ->
+                                    asked += name
+                                    replaceAnswer
+                                },
+                            )
+                        model.hostInput = "scans.example.com"
+                        model.connect()
+                    }
+
+                    afterEach { folder.deleteRecursively() }
+
+                    justBeforeEach { model.upload(files) }
+
+                    context("with one new file") {
+                        beforeEach { files = listOf(makeFile("notes.pdf")) }
+
+                        it("uploads it without asking") {
+                            sent shouldBe listOf("notes.pdf")
+                            asked shouldBe emptyList()
+                        }
+
+                        it("reloads the list, selects the new file and says it's uploaded") {
+                            model.scans.map { it.name } shouldBe listOf("notes.pdf", scan.name)
+                            model.selectedScanID shouldBe "notes.pdf"
+                            model.savedMessage shouldBe "File notes.pdf uploaded."
+                        }
+                    }
+
+                    context("with a file over 25 MB") {
+                        beforeEach { files = listOf(makeFile("big.zip", ScanClient.MAX_UPLOAD_BYTES + 1)) }
+
+                        it("doesn't send it, and clears the failure flash afterward") {
+                            sent shouldBe emptyList()
+                            model.savingMessage shouldBe null
+                        }
+                    }
+
+                    context("with the name of a file already listed") {
+                        beforeEach { files = listOf(makeFile(scan.name)) }
+
+                        it("asks before replacing it") {
+                            asked shouldBe listOf(scan.name)
+                            sent shouldBe listOf(scan.name)
+                        }
+
+                        context("when the answer is no") {
+                            beforeEach { replaceAnswer = false }
+
+                            it("sends nothing") {
+                                sent shouldBe emptyList()
+                            }
+                        }
+                    }
+
+                    context("when the server refuses the upload") {
+                        beforeEach {
+                            files = listOf(makeFile("notes.pdf"))
+                            uploadFails = true
+                        }
+
+                        it("says nothing was uploaded, and clears the failure flash afterward") {
+                            model.savedMessage shouldBe null
+                            model.savingMessage shouldBe null
+                        }
+                    }
+                }
+
                 // Matches zouk's AppModelSpec.swift's own justBeforeEach { await model.delete(scan) }
                 // (the first real suspend justBeforeEach usage ported to this file) -- each context
                 // below only wires up connectedModel()'s onDelete handler, the act itself lives once.
@@ -257,6 +372,22 @@ class AppModelSpec :
                         it("removes the scan from scans and clears the selection") {
                             model.scans shouldBe emptyList()
                             model.selectedScanID shouldBe null
+                        }
+                    }
+
+                    context("when another client already deleted it") {
+                        beforeEach {
+                            val (connected, connectedScan) =
+                                connectedModel(onDelete = { throw ScanClientError("The server responded with status 404.", 404) })
+                            model = connected
+                            scan = connectedScan
+                            model.selectedScanID = scan.id
+                        }
+
+                        it("removes it without complaining, since it's gone either way") {
+                            model.scans shouldBe emptyList()
+                            model.selectedScanID shouldBe null
+                            model.savingMessage shouldBe null
                         }
                     }
 
@@ -283,6 +414,7 @@ class AppModelSpec :
 // FakeScanFetching { fixtureScans } keep binding to result, the last parameter, unchanged.
 private class FakeScanFetching(
     private val onDelete: suspend (ScanEntry) -> Unit = {},
+    private val onUpload: suspend (File) -> Unit = {},
     private val result: () -> List<ScanEntry>,
 ) : ScanFetching {
     override suspend fun fetchScans(): List<ScanEntry> = result()
@@ -299,4 +431,6 @@ private class FakeScanFetching(
     ): File = throw NotImplementedError("FakeScanFetching.save isn't exercised by these specs yet")
 
     override suspend fun delete(scan: ScanEntry) = onDelete(scan)
+
+    override suspend fun upload(file: File) = onUpload(file)
 }
