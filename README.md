@@ -53,9 +53,7 @@ nginx config (`service/lambada.nginx.conf`) is one such server.
 Building from source and the project layout moved to
 [docs/DEVELOPER.md](docs/DEVELOPER.md).
 
-## Install
-
-### Windows
+## Install on Windows
 
 <a href ="https://github.com/woodie/zouk/releases/latest"><img
    align="left" width="100" src="docs/msi.png" /></a>
