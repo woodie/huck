@@ -57,22 +57,13 @@ Building from source and the project layout moved to
 
 ### Windows
 
+<a href ="https://github.com/woodie/zouk/releases/latest"><img
+   align="left" width="100" src="docs/msi.png" /></a>
+
 Grab the latest `.msi` from the
 [Releases page](https://github.com/woodie/huck/releases/latest) and
 double-click it -- Next, Next, Finish, like any other Windows installer.
 The `.msi` isn't code-signed yet, so Windows SmartScreen may show an
 "Unknown publisher" warning on first run -- click **More info** then
 **Run anyway** to continue.
-
-### macOS
-
-Grab the latest `.pkg` from the
-[Releases page](https://github.com/woodie/huck/releases/latest) and
-double-click it -- Next, Next, Done, like any other Mac installer. The
-`.pkg` is signed and notarized, so it installs and launches with no
-Gatekeeper warning -- just the routine "downloaded from the Internet"
-notice macOS shows on any first launch, with a normal Open button.
-
-Want a fully native macOS app instead? Try
-[`zouk`](https://github.com/woodie/zouk) -- the original Swift version
-of this same app, macOS-only.
+For macOS, try [Zouk](https://github.com/woodie/zouk).
