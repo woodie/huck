@@ -55,7 +55,7 @@ Building from source and the project layout moved to
 
 ## Install on Windows
 
-<a href ="https://github.com/woodie/zouk/releases/latest"><img
+<a href ="https://github.com/woodie/huck/releases/latest"><img
    align="left" width="100" src="docs/msi.png" /></a>
 
 Grab the latest `.msi` from the
