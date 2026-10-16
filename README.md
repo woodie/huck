@@ -6,19 +6,20 @@
 [![Release](https://img.shields.io/github/v/release/woodie/huck.svg)](https://github.com/woodie/huck/releases/latest)
 [![License](https://img.shields.io/github/license/woodie/huck.svg)](LICENSE)
 
-[lambada](https://github.com/woodie/lambada) serves the scans from an old
-scanner (one that needs an open relay) over WebDAV, so a web browser, File Explorer
-and other WebDAV apps can all reach them. Each comes with extra steps, though:
-browsers warn about every download over plain HTTP, and mounting the folder
-means connect-as-guest dialogs and remembering to disconnect.
+The [lambada scan server](https://github.com/woodie/lambada) serves the
+scans from an old scanner (one that needs an open relay) over WebDAV, so a
+web browser, File Explorer and other WebDAV apps can all reach them. Each
+comes with extra steps, though: browsers warn about every download over
+plain HTTP, and mounting the folder means connect-as-guest dialogs and
+remembering to disconnect.
 
 <img align="left" width="128" src="docs/art_smaller.png">
 
 Fear not, now we have the Huck scan retriever for Windows: the optimized
-experience for downloading scans. Set it up once with your Pi's address, and
-from then on it opens straight to your scans as a grid of thumbnails, with no
-warnings or dialogs to click through. The main screen is similar to a mapped
-network drive, but much faster and easier to use.
+experience for downloading scans. Set it up once with your scan server's
+address, and from then on it opens straight to your scans as a grid of
+thumbnails, with no warnings or dialogs to click through. The main screen is
+similar to a mapped network drive, but much faster and easier to use.
 
 On launch, huck asks for a hostname or IP address (e.g.
 `10.0.1.111`) and remembers it for next time.
@@ -42,11 +43,12 @@ with the same name is already there, huck asks before replacing it.
 
 ## Compatibility
 
-huck works with any WebDAV folder that allows guest access: it lists the
+Huck works with any WebDAV folder that allows guest access: it lists the
 folder with a WebDAV `PROPFIND`, downloads or deletes each file at its own
-address, and uploads with `PUT`. Enter the folder's address, like `10.0.1.111` or
-`10.0.1.111:8081/scans/`. [lambada](https://github.com/woodie/lambada)'s
-nginx config (`service/lambada.nginx.conf`) is one such server.
+address, and uploads with `PUT`. Enter the folder's address, like
+`10.0.1.111` or `10.0.1.111:8081/scans/`. The [lambada scan
+server](https://github.com/woodie/lambada)'s nginx config
+(`service/lambada.nginx.conf`) is one such server.
 
 ## Development
 
