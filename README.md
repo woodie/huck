@@ -2,7 +2,6 @@
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF.svg?logo=kotlin&logoColor=white)](build.gradle.kts)
 [![Windows package](https://github.com/woodie/huck/actions/workflows/windows-package.yml/badge.svg)](https://github.com/woodie/huck/actions/workflows/windows-package.yml)
-[![macOS package](https://github.com/woodie/huck/actions/workflows/macos-package.yml/badge.svg)](https://github.com/woodie/huck/actions/workflows/macos-package.yml)
 [![Release](https://img.shields.io/github/v/release/woodie/huck.svg)](https://github.com/woodie/huck/releases/latest)
 [![License](https://img.shields.io/github/license/woodie/huck.svg)](LICENSE)
 
